@@ -304,34 +304,45 @@ class _GamepadDeckState extends State<GamepadDeck> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.0,
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: color),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '|  $subtitle',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    '|  $subtitle',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.4),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Row(children: extraActions),
         ],
       ),
@@ -342,24 +353,23 @@ class _GamepadDeckState extends State<GamepadDeck> {
   Widget _buildGamepadControls() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left: D-pad
-          Center(
-            child: _buildDPad(),
-          ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Left: D-pad
+            _buildDPad(),
+            const SizedBox(width: 24),
 
-          // Middle: System Keys (SELECT/START/MENU/PAUSE)
-          Center(
-            child: _buildSystemPanel(),
-          ),
+            // Middle: System Keys (SELECT/START/MENU/PAUSE)
+            _buildSystemPanel(),
+            const SizedBox(width: 24),
 
-          // Right: ABXY Face Cluster
-          Center(
-            child: _buildABXYCluster(),
-          ),
-        ],
+            // Right: ABXY Face Cluster
+            _buildABXYCluster(),
+          ],
+        ),
       ),
     );
   }
@@ -634,35 +644,45 @@ class _GamepadDeckState extends State<GamepadDeck> {
                   color: const Color(0xFFFF2E93),
                 ),
 
+                const SizedBox(width: 8),
+
                 // Core Name / Engine Mode Info
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.engine!.isMockMode ? 'SIMULATOR MODE' : 'HARDWARE FFI MODE',
-                      style: const TextStyle(
-                        color: Color(0xFF00E5FF),
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.engine!.isMockMode ? 'SIMULATOR MODE' : 'HARDWARE FFI MODE',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF00E5FF),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    ValueListenableBuilder<String>(
-                      valueListenable: widget.engine!.logNotifier,
-                      builder: (context, log, child) {
-                        return Text(
-                          log,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.35),
-                            fontSize: 8,
-                            fontFamily: 'monospace',
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      ValueListenableBuilder<String>(
+                        valueListenable: widget.engine!.logNotifier,
+                        builder: (context, log, child) {
+                          return Text(
+                            log,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.35),
+                              fontSize: 8,
+                              fontFamily: 'monospace',
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
+
+                const SizedBox(width: 8),
 
                 // P2 Client status
                 _buildTelemetryNode(

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../network/host_server.dart';
@@ -9,36 +10,53 @@ class RoleGate extends StatelessWidget {
   const RoleGate({super.key});
 
   Future<void> _handleHostSelection(BuildContext context) async {
+    bool loadingShown = false;
     try {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['nes', 'smc', 'sfc', 'md', 'gen', 'bin'],
       );
 
-      if (result != null && result.files.single.path != null) {
-        final romPath = result.files.single.path!;
-        final romName = result.files.single.name;
+      debugPrint('[DEBUG] FilePicker raw result: $result');
+      if (result != null) {
+        debugPrint('[DEBUG] Selected file count: ${result.files.length}');
+        for (int i = 0; i < result.files.length; i++) {
+          final f = result.files[i];
+          debugPrint('[DEBUG] File [$i] path: ${f.path}, name: ${f.name}, bytes: ${f.bytes?.length}');
+        }
+      }
+
+      if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+        final romPath = result.files.first.path!;
+        final romName = result.files.first.name;
         final ext = romPath.split('.').last.toLowerCase();
 
         // Map extension to Libretro core binary
         String coreFilename;
         if (ext == 'nes') {
-          coreFilename = 'nestopia_libretro.so';
+          coreFilename = Platform.isAndroid
+              ? 'fceumm_libretro_android.so'
+              : 'fceumm_libretro_ios.dylib';
         } else if (ext == 'smc' || ext == 'sfc') {
-          coreFilename = 'snes9x_libretro.so';
+          coreFilename = Platform.isAndroid
+              ? 'snes9x_libretro_android.so'
+              : 'snes9x_libretro_ios.dylib';
         } else {
-          coreFilename = 'genesis_plus_gx_libretro.so';
+          coreFilename = Platform.isAndroid
+              ? 'genesis_plus_gx_libretro_android.so'
+              : 'genesis_plus_gx_libretro_ios.dylib';
         }
 
         // Show elegant glass loading indicator
         if (!context.mounted) return;
         _showLoading(context, 'Extracting core binaries...');
+        loadingShown = true;
 
         String corePath = '';
         try {
           corePath = await LibretroEngine.extractCoreFromAssets('assets/cores/$coreFilename');
         } catch (e) {
-          debugPrint('Core asset missing in package. Running in simulated fallback mode: $e');
+          debugPrint('[DEBUG] Core asset missing/failed extraction: $e');
         }
 
         // Initialize Host Mesh WebSocket server & mDNS advertiser
@@ -51,6 +69,7 @@ class RoleGate extends StatelessWidget {
 
         if (!context.mounted) return;
         Navigator.pop(context); // Dismiss loading dialog
+        loadingShown = false;
 
         // Navigate to Dual-Screen Gamepad Deck (Host Mode)
         Navigator.push(
@@ -64,9 +83,13 @@ class RoleGate extends StatelessWidget {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[DEBUG] Fatal error in _handleHostSelection: $e');
+      debugPrint('[DEBUG] Stack trace: $stack');
       if (context.mounted) {
-        Navigator.pop(context); // Ensure loading is dismissed
+        if (loadingShown) {
+          Navigator.pop(context); // Ensure loading is dismissed
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFEF4444),

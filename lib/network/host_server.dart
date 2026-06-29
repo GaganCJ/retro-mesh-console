@@ -94,16 +94,20 @@ class HostServer {
         _log('HttpServer Error: $e');
       });
 
-      // Advertise server via mDNS nsd package
+      // Advertise server via mDNS nsd package asynchronously to prevent blocking the engine boot
       _log('Publishing mDNS broadcast signature: _retroconsole._tcp...');
-      _registration = await nsd.register(
+      nsd.register(
         const nsd.Service(
           name: 'RetroMeshConsoleHost',
           type: '_retroconsole._tcp',
           port: 3000,
         ),
-      );
-      _log('mDNS service registered successfully');
+      ).then((reg) {
+        _registration = reg;
+        _log('mDNS service registered successfully');
+      }).catchError((e) {
+        _log('mDNS registration failed: $e');
+      });
 
       // Start Host local battery and Wi-Fi check loop (every 8 seconds)
       _startLocalTelemetryLoop();
