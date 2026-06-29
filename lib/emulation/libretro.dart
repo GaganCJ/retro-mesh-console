@@ -96,15 +96,15 @@ class LibretroEngine {
   bool _isCoreInitialized = false;
   bool _isGameLoaded = false;
   Timer? _gameLoopTimer;
+  bool isPaused = false;
 
-  // Dynamic Library Function Pointers
   late void Function(Pointer<NativeFunction<retro_environment_t>>) _retroSetEnvironment;
   late void Function(Pointer<NativeFunction<retro_video_refresh_t>>) _retroSetVideoRefresh;
   late void Function(Pointer<NativeFunction<retro_audio_sample_t>>) _retroSetAudioSample;
   late void Function(Pointer<NativeFunction<retro_audio_sample_batch_t>>) _retroSetAudioSampleBatch;
   late void Function(Pointer<NativeFunction<retro_input_poll_t>>) _retroSetInputPoll;
   late void Function(Pointer<NativeFunction<retro_input_state_t>>) _retroSetInputState;
-  
+
   late void Function() _retroInit;
   late void Function() _retroDeinit;
   late int Function() _retroApiVersion;
@@ -268,6 +268,7 @@ class LibretroEngine {
     stopGameLoop();
     _gameLoopTimer = Timer.periodic(const Duration(microseconds: 16667), (timer) {
       if (!_isGameLoaded || !_isCoreInitialized) return;
+      if (isPaused) return;
       if (isMockMode) {
         _renderMockFrame();
       } else {

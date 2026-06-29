@@ -184,10 +184,10 @@ class RoleGate extends StatelessWidget {
 
                   // Card 1: HOST CONSOLE (Player 1)
                   _buildCard(
-                    title: 'HOST CONSOLE SYSTEM',
+                    title: 'START GAME CONSOLE',
                     role: 'PLAYER 1 / HOST CONSOLE',
                     description:
-                        'Select a local retro ROM file, initialize the FFI emulation loop, spawn a background mesh server, and project output to a television display.',
+                        'Load a game ROM, connect to your television screen, and act as Player 1.',
                     icon: Icons.gamepad_rounded,
                     glowColor: const Color(0xFFFF2E93),
                     onTap: () => _handleHostSelection(context),
@@ -197,10 +197,10 @@ class RoleGate extends StatelessWidget {
 
                   // Card 2: JOIN CONTROLLER (Player 2)
                   _buildCard(
-                    title: 'JOIN CONTROLLER SQUAD',
+                    title: 'JOIN ACTIVE CONSOLE',
                     role: 'PLAYER 2 / WIRELESS CLIENT',
                     description:
-                        'Auto-scan the local network via mDNS to discover the host console, hook into the mesh WebSocket, and map your viewport inputs to Port 2.',
+                        'Join an active game console session on the local network to play together as Player 2.',
                     icon: Icons.wifi_find_rounded,
                     glowColor: const Color(0xFF00E5FF),
                     onTap: () => _handleJoinSelection(context),
@@ -210,7 +210,7 @@ class RoleGate extends StatelessWidget {
                   
                   // Footer info
                   Text(
-                    'RETRO MESH NETWORK v1.0.0 • DART FFI ENABLED',
+                    'RETRO MESH CONSOLE v1.0.0',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.3),
                       fontSize: 11,

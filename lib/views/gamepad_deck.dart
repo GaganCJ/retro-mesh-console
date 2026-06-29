@@ -26,7 +26,7 @@ class GamepadDeck extends StatefulWidget {
 class _GamepadDeckState extends State<GamepadDeck> {
   static const MethodChannel _projectionChannel = MethodChannel('com.retromesh.console/projection');
   
-  bool _showSplitScreenPreview = true; // Allows Host to preview TV layout alongside controller
+  bool _isCasting = true; // Track if cast dialog presentation is active (starts as true since P1 auto-starts it)
 
   @override
   void initState() {
@@ -84,6 +84,19 @@ class _GamepadDeckState extends State<GamepadDeck> {
   }
 
   void _handleButtonEvent(int buttonId, bool pressed) {
+    if (buttonId == 11) { // MENU
+      if (pressed && widget.isHost) {
+        _showMenuOverlay();
+      }
+      return;
+    }
+    if (buttonId == 12) { // PAUSE
+      if (pressed && widget.isHost) {
+        _togglePause();
+      }
+      return;
+    }
+
     if (widget.isHost) {
       // Local Host maps directly to Port 1 (index 0) in Libretro
       widget.engine?.updateButtonState(0, buttonId, pressed);
@@ -91,6 +104,95 @@ class _GamepadDeckState extends State<GamepadDeck> {
       // Client maps to Port 2 (index 1) by sending over WebSocket
       ClientSocket.instance.sendButtonInput(buttonId, pressed);
     }
+  }
+
+  void _togglePause() {
+    if (widget.isHost && widget.engine != null) {
+      setState(() {
+        widget.engine!.isPaused = !widget.engine!.isPaused;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 1),
+          backgroundColor: const Color(0xFFFF2E93),
+          content: Text(
+            widget.engine!.isPaused ? 'GAME PAUSED' : 'GAME RESUMED',
+            style: const TextStyle(
+              color: Colors.white,
+              fontFamily: 'Outfit',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showMenuOverlay() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E38),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.menu, color: Color(0xFFFF2E93)),
+            const SizedBox(width: 10),
+            const Text(
+              'CONSOLE MENU',
+              style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow, color: Colors.white70),
+              title: const Text('Resume Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit')),
+              onTap: () {
+                Navigator.pop(ctx);
+                if (widget.engine!.isPaused) {
+                  _togglePause();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.refresh, color: Colors.white70),
+              title: const Text('Reset Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit')),
+              onTap: () {
+                Navigator.pop(ctx);
+                if (widget.engine != null) {
+                  widget.engine!.initializeCore(''); // Reset
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Resetting Game...')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.exit_to_app, color: Color(0xFFEF4444)),
+              title: const Text('Exit to Main Menu', style: TextStyle(color: Color(0xFFEF4444), fontFamily: 'Outfit', fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _exitGame(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _exitGame(BuildContext context) {
+    if (widget.isHost) {
+      _stopNativeTVProjection();
+      widget.engine?.shutdown();
+      HostServer.instance.stop();
+    } else {
+      ClientSocket.instance.disconnect();
+    }
+    Navigator.pop(context); // Redirect back to main page (RoleGate)
   }
 
   @override
@@ -107,66 +209,95 @@ class _GamepadDeckState extends State<GamepadDeck> {
     return ValueListenableBuilder<CombinedTelemetry>(
       valueListenable: HostServer.instance.telemetryNotifier,
       builder: (context, telemetry, child) {
-        return Row(
-          children: [
-            // Left Half: Gamepad Deck Controller
-            Expanded(
-              flex: _showSplitScreenPreview ? 6 : 10,
-              child: SafeArea(
-                right: false,
-                child: Column(
-                  children: [
-                    // Host Controller Header Status Bar
-                    _buildHeaderBar(
-                      title: 'CONSOLE HOST • PORT 1',
-                      subtitle: widget.romName,
-                      color: const Color(0xFFFF2E93),
-                      extraActions: [
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _showSplitScreenPreview = !_showSplitScreenPreview;
-                            });
-                          },
-                          icon: Icon(
-                            _showSplitScreenPreview ? Icons.fullscreen : Icons.splitscreen,
-                            color: const Color(0xFFFF2E93),
-                            size: 16,
-                          ),
-                          label: Text(
-                            _showSplitScreenPreview ? 'HIDE TV PREVIEW' : 'SHOW TV PREVIEW',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Outfit',
+        return SafeArea(
+          child: Column(
+            children: [
+              _buildHeaderBar(
+                title: 'CONSOLE HOST • PORT 1',
+                subtitle: widget.romName,
+                color: const Color(0xFFFF2E93),
+                extraActions: [
+                  TextButton.icon(
+                    onPressed: () async {
+                      if (_isCasting) {
+                        await _stopNativeTVProjection();
+                        setState(() {
+                          _isCasting = false;
+                        });
+                      } else {
+                        // Request native presentation screen casting
+                        final success = await _projectionChannel.invokeMethod('startTVProjection');
+                        setState(() {
+                          _isCasting = success == true;
+                        });
+                        if (success != true) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('No external display detected. Please connect HDMI or AirPlay/Cast screen.'),
                             ),
-                          ),
-                        ),
-                      ],
+                          );
+                        }
+                      }
+                    },
+                    icon: Icon(
+                      _isCasting ? Icons.cast_connected : Icons.cast,
+                      color: _isCasting ? const Color(0xFFFF2E93) : Colors.white,
+                      size: 16,
                     ),
-                    Expanded(
-                      child: _buildGamepadControls(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Right Half: Live Projected TV Viewport Preview (if enabled)
-            if (_showSplitScreenPreview)
-              Expanded(
-                flex: 5,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: Colors.white24, width: 1.5),
+                    label: Text(
+                      _isCasting ? 'DISCONNECT CAST' : 'CAST TO TV',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                      ),
                     ),
                   ),
-                  child: _buildTVViewport(telemetry),
-                ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: const Color(0xFF1E1E38),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Text('Exit Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontWeight: FontWeight.bold)),
+                          content: const Text('Are you sure you want to exit? This will stop the emulation and disconnect all players.', style: TextStyle(color: Colors.white70, fontFamily: 'Outfit')),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _exitGame(context);
+                              },
+                              child: const Text('EXIT', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.exit_to_app, color: Color(0xFFEF4444), size: 16),
+                    label: const Text(
+                      'EXIT GAME',
+                      style: TextStyle(
+                        color: Color(0xFFEF4444),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-          ],
+              Expanded(
+                child: _buildGamepadControls(),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -253,7 +384,7 @@ class _GamepadDeckState extends State<GamepadDeck> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Make sure both devices are on the exact same Wi-Fi subnet. The app will auto-discover the host mDNS broadcast.',
+              'Make sure both devices are connected to the same Wi-Fi network. Auto-discovery will connect you automatically.',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.5),
                 fontSize: 13,
@@ -351,31 +482,40 @@ class _GamepadDeckState extends State<GamepadDeck> {
 
   /// Core gamepad layout split into D-pad, System Panel, and ABXY cluster
   Widget _buildGamepadControls() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Left: D-pad
-            _buildDPad(),
-            const SizedBox(width: 24),
-
-            // Middle: System Keys (SELECT/START/MENU/PAUSE)
-            _buildSystemPanel(),
-            const SizedBox(width: 24),
-
-            // Right: ABXY Face Cluster
-            _buildABXYCluster(),
-          ],
+    return Stack(
+      children: [
+        // Left Side: D-pad
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 36),
+            child: _buildDPad(),
+          ),
         ),
-      ),
+
+        // Right Side: ABXY Cluster
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 36),
+            child: _buildABXYCluster(),
+          ),
+        ),
+
+        // Center: System Keys (SELECT / START / MENU / PAUSE)
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: _buildSystemPanel(),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDPad() {
-    const double size = 52;
+    const double size = 72;
     return SizedBox(
       width: size * 3,
       height: size * 3,
@@ -447,7 +587,7 @@ class _GamepadDeckState extends State<GamepadDeck> {
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -458,22 +598,23 @@ class _GamepadDeckState extends State<GamepadDeck> {
 
   Widget _buildSystemPanel() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildSystemButton(label: 'SELECT', buttonId: 10),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             _buildSystemButton(label: 'START', buttonId: 9),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildSystemButton(label: 'MENU', buttonId: 11, isHotKey: true),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             _buildSystemButton(label: 'PAUSE', buttonId: 12, isHotKey: true),
           ],
         ),
@@ -495,20 +636,20 @@ class _GamepadDeckState extends State<GamepadDeck> {
         _handleButtonEvent(buttonId, false);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: isHotKey ? const Color(0xFFFF2E93).withOpacity(0.1) : const Color(0xFF1E1E38),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isHotKey ? const Color(0xFFFF2E93).withOpacity(0.5) : Colors.white24,
-            width: 1,
+            width: 1.5,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: isHotKey ? const Color(0xFFFF2E93) : Colors.white,
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
           ),
@@ -518,8 +659,8 @@ class _GamepadDeckState extends State<GamepadDeck> {
   }
 
   Widget _buildABXYCluster() {
-    const double size = 48;
-    const double spacing = 68;
+    const double size = 64;
+    const double spacing = 96;
     return SizedBox(
       width: size + spacing,
       height: size + spacing,
@@ -574,14 +715,14 @@ class _GamepadDeckState extends State<GamepadDeck> {
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
           shape: BoxShape.circle,
-          border: Border.all(color: color, width: 2),
+          border: Border.all(color: color, width: 2.5),
         ),
         child: Center(
           child: Text(
             label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
