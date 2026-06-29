@@ -18,20 +18,29 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "openSystemCastMenu" -> {
                     try {
-                        val intent = Intent(Settings.ACTION_CAST_SETTINGS).apply {
+                        val intent = Intent().apply {
+                            setClassName("com.android.settings", "com.android.settings.Settings\$WifiDisplaySettingsActivity")
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         startActivity(intent)
                         result.success(true)
                     } catch (e: Exception) {
                         try {
-                            val intent = Intent("android.settings.WIFI_DISPLAY_SETTINGS").apply {
+                            val intent = Intent(Settings.ACTION_CAST_SETTINGS).apply {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
                             startActivity(intent)
                             result.success(true)
                         } catch (ex: Exception) {
-                            result.error("CAST_SETTINGS_FAILED", ex.message, null)
+                            try {
+                                val intent = Intent("android.settings.WIFI_DISPLAY_SETTINGS").apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (exc: Exception) {
+                                result.error("CAST_SETTINGS_FAILED", exc.message, null)
+                            }
                         }
                     }
                 }

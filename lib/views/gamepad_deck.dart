@@ -40,10 +40,37 @@ class _GamepadDeckState extends State<GamepadDeck> {
     // 2. Prevent mobile OS from sleeping or throttling priority threads
     WakelockPlus.enable();
 
-    // 3. P1 Host: Initialize native wireless presentation SDK hooks
+    // 3. P1 Host: Initialize native wireless presentation SDK hooks with a handshake grace period
     if (widget.isHost) {
-      _startNativeTVProjection();
+      _waitForDisplayConnection().then((connected) {
+        if (!connected) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Color(0xFFEF4444),
+              content: Text(
+                'No wireless display selected. Emulation exited.',
+                style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          );
+          _exitGame(context);
+        } else {
+          setState(() {
+            _isCasting = true;
+          });
+        }
+      });
     }
+  }
+
+  Future<bool> _waitForDisplayConnection() async {
+    // Try up to 8 times with a 1-second delay (8 seconds total) to allow Miracast / Cast handshaking to complete
+    for (int i = 0; i < 8; i++) {
+      final connected = await _startNativeTVProjection();
+      if (connected) return true;
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    return false;
   }
 
   @override
@@ -67,11 +94,13 @@ class _GamepadDeckState extends State<GamepadDeck> {
 
   /// Triggers Platform-specific dual-screen window allocations.
   /// Detailed Native implementations for iOS and Android are documented below the widget.
-  Future<void> _startNativeTVProjection() async {
+  Future<bool> _startNativeTVProjection() async {
     try {
-      await _projectionChannel.invokeMethod('startTVProjection');
+      final bool? success = await _projectionChannel.invokeMethod<bool>('startTVProjection');
+      return success ?? false;
     } on PlatformException catch (e) {
       debugPrint('Native projection initialization warning: $e');
+      return false;
     }
   }
 
