@@ -27,6 +27,7 @@ class _GamepadDeckState extends State<GamepadDeck> {
   static const MethodChannel _projectionChannel = MethodChannel('com.retromesh.console/projection');
   
   bool _isCasting = true; // Track if cast dialog presentation is active (starts as true since P1 auto-starts it)
+  bool _isConnectingTV = true; // Track if we are waiting for TV handshake
 
   @override
   void initState() {
@@ -42,7 +43,13 @@ class _GamepadDeckState extends State<GamepadDeck> {
 
     // 3. P1 Host: Initialize native wireless presentation SDK hooks with a handshake grace period
     if (widget.isHost) {
+      _isConnectingTV = true;
       _waitForDisplayConnection().then((connected) {
+        if (mounted) {
+          setState(() {
+            _isConnectingTV = false;
+          });
+        }
         if (!connected) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -55,11 +62,15 @@ class _GamepadDeckState extends State<GamepadDeck> {
           );
           _exitGame(context);
         } else {
-          setState(() {
-            _isCasting = true;
-          });
+          if (mounted) {
+            setState(() {
+              _isCasting = true;
+            });
+          }
         }
       });
+    } else {
+      _isConnectingTV = false;
     }
   }
 
@@ -226,6 +237,56 @@ class _GamepadDeckState extends State<GamepadDeck> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isHost && _isConnectingTV) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF070714),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFFF2E93).withOpacity(0.08),
+                  border: Border.all(color: const Color(0xFFFF2E93).withOpacity(0.3), width: 1.5),
+                ),
+                child: const SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF2E93)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'WAITING FOR TELEVISION...',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                  fontFamily: 'Outfit',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Please select your wireless display or Smart TV in the system cast overlay.',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 13,
+                  fontFamily: 'Outfit',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF070714),
       body: widget.isHost ? _buildHostLayout() : _buildClientLayout(),
