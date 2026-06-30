@@ -49,6 +49,15 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
     }
   }
 
+  void _onFrameGenerated() {
+    if (_isCasting) {
+      final frame = widget.engine?.currentFrameNotifier.value;
+      if (frame != null) {
+        _projectionChannel.invokeMethod('sendFrame', frame);
+      }
+    }
+  }
+
   void _checkPreConnectedDisplay() {
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
@@ -58,6 +67,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
             _isConnectingTV = false;
             _isCasting = true;
           });
+          widget.engine?.currentFrameNotifier.addListener(_onFrameGenerated);
         }
       });
     });
@@ -83,6 +93,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
             _isConnectingTV = false;
             _isCasting = true;
           });
+          widget.engine?.currentFrameNotifier.addListener(_onFrameGenerated);
         }
       });
     }
@@ -91,6 +102,9 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (widget.isHost) {
+      widget.engine?.currentFrameNotifier.removeListener(_onFrameGenerated);
+    }
     // Restore orientation settings
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
