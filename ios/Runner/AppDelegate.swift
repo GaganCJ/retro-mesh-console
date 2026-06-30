@@ -11,6 +11,9 @@ import AVKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     let controller = window?.rootViewController as! FlutterViewController
+    if let registrar = self.registrar(forPlugin: "CastingAdapter") {
+        CastingAdapter.register(with: registrar)
+    }
     let channel = FlutterMethodChannel(name: "com.retromesh.console/projection",
                                        binaryMessenger: controller.binaryMessenger)
     
