@@ -164,7 +164,6 @@ class RoleGate extends StatelessWidget {
 
         if (selectedTarget == null) {
           // User cancelled display selection, exit game
-          engine.shutdown();
           HostServer.instance.stop();
           return;
         }
