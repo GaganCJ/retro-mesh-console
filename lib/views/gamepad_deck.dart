@@ -141,12 +141,6 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
       }
       return;
     }
-    if (buttonId == 12) { // PAUSE
-      if (pressed && widget.isHost) {
-        _togglePause();
-      }
-      return;
-    }
 
     if (widget.isHost) {
       // Local Host maps directly to Port 1 (index 0) in Libretro
@@ -318,44 +312,6 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
                 subtitle: widget.romName,
                 color: const Color(0xFFFF2E93),
                 extraActions: [
-                  TextButton.icon(
-                    onPressed: () async {
-                      if (_isCasting) {
-                        await _stopNativeTVProjection();
-                        setState(() {
-                          _isCasting = false;
-                        });
-                      } else {
-                        // Request native presentation screen casting
-                        final success = await _projectionChannel.invokeMethod('startTVProjection');
-                        setState(() {
-                          _isCasting = success == true;
-                        });
-                        if (success != true) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('No external display detected. Please connect HDMI or AirPlay/Cast screen.'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    icon: Icon(
-                      _isCasting ? Icons.cast_connected : Icons.cast,
-                      color: _isCasting ? const Color(0xFFFF2E93) : Colors.white,
-                      size: 16,
-                    ),
-                    label: Text(
-                      _isCasting ? 'DISCONNECT CAST' : 'CAST TO TV',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Outfit',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () {
                       showDialog(
@@ -715,8 +671,6 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildSystemButton(label: 'MENU', buttonId: 11, isHotKey: true),
-            const SizedBox(width: 16),
-            _buildSystemButton(label: 'PAUSE', buttonId: 12, isHotKey: true),
           ],
         ),
       ],
