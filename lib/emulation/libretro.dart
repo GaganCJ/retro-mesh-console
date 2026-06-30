@@ -427,6 +427,10 @@ class LibretroEngine {
       case RETRO_DEVICE_ID_JOYPAD_RIGHT: return 4;  // Right
       case RETRO_DEVICE_ID_JOYPAD_A: return 5;      // A
       case RETRO_DEVICE_ID_JOYPAD_X: return 7;      // X
+      case RETRO_DEVICE_ID_JOYPAD_L: return 12;     // L1
+      case RETRO_DEVICE_ID_JOYPAD_R: return 13;     // R1
+      case RETRO_DEVICE_ID_JOYPAD_L2: return 14;    // L2
+      case RETRO_DEVICE_ID_JOYPAD_R2: return 15;    // R2
       default: return null;
     }
   }

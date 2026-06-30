@@ -182,6 +182,10 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
       else if (key == LogicalKeyboardKey.gameButtonStart || key == LogicalKeyboardKey.enter) buttonId = 9;
       else if (key == LogicalKeyboardKey.gameButtonSelect || key == LogicalKeyboardKey.space) buttonId = 10;
       else if (key == LogicalKeyboardKey.gameButtonMode || key == LogicalKeyboardKey.escape) buttonId = 11;
+      else if (key == LogicalKeyboardKey.gameButtonLeft1 || key == LogicalKeyboardKey.keyQ) buttonId = 12;
+      else if (key == LogicalKeyboardKey.gameButtonRight1 || key == LogicalKeyboardKey.keyE) buttonId = 13;
+      else if (key == LogicalKeyboardKey.gameButtonLeft2 || key == LogicalKeyboardKey.digit1) buttonId = 14;
+      else if (key == LogicalKeyboardKey.gameButtonRight2 || key == LogicalKeyboardKey.digit3) buttonId = 15;
       
       if (buttonId != null) {
         _handleButtonEvent(buttonId, pressed);
