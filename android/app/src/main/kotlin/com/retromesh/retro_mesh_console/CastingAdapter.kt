@@ -56,7 +56,12 @@ class CastingAdapter(
 
         // Listen for standard HDMI/Miracast presentation screens from DisplayManager
         displayManager.registerDisplayListener(object : DisplayManager.DisplayListener {
-            override fun onDisplayAdded(displayId: Int) { updateDevices() }
+            override fun onDisplayAdded(displayId: Int) { 
+                updateDevices()
+                if (currentTarget != null && presentationDialog == null) {
+                    projectGameplayCanvas()
+                }
+            }
             override fun onDisplayRemoved(displayId: Int) { updateDevices() }
             override fun onDisplayChanged(displayId: Int) { updateDevices() }
         }, handler)
@@ -184,21 +189,19 @@ class CastingAdapter(
     }
 
     private fun connectToDevice(target: JSONObject) {
-        val protocolType = target.getString("protocolType")
+        val protocolType = target.optString("protocolType", "androidPresentation")
         val id = target.getString("id")
 
-        if (protocolType == "googleCast") {
-            try {
-                // Programmatic selection of Google Cast route
-                mediaRouter?.let { router ->
-                    val route = router.routes.firstOrNull { it.id == id }
-                    if (route != null) {
-                        router.selectRoute(route)
-                    }
+        try {
+            // Programmatic selection of Google Cast or Miracast route
+            mediaRouter?.let { router ->
+                val route = router.routes.firstOrNull { it.id == id }
+                if (route != null) {
+                    router.selectRoute(route)
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

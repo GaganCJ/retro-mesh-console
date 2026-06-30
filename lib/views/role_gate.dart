@@ -65,6 +65,12 @@ class RoleGate extends StatelessWidget {
         // Initialize Host Mesh WebSocket server & mDNS advertiser
         await HostServer.instance.start();
 
+        if (!context.mounted) return;
+        if (loadingShown) {
+          Navigator.pop(context); // Dismiss extracting dialog
+          loadingShown = false;
+        }
+
         // Show custom display picker overlay
         final caster = UniversalCasterBridge();
         await caster.startScanning();
