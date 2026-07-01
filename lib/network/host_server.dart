@@ -1,48 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:battery_plus/battery_plus.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import '../utils/logger.dart';
 import 'package:nsd/nsd.dart' as nsd;
 import '../emulation/libretro.dart';
-
-class CombinedTelemetry {
-  final bool p1Connected;
-  final int p1Battery;
-  final String p1Wifi;
-  final bool p2Connected;
-  final int p2Battery;
-  final String p2Wifi;
-
-  CombinedTelemetry({
-    required this.p1Connected,
-    required this.p1Battery,
-    required this.p1Wifi,
-    required this.p2Connected,
-    required this.p2Battery,
-    required this.p2Wifi,
-  });
-
-  CombinedTelemetry copyWith({
-    bool? p1Connected,
-    int? p1Battery,
-    String? p1Wifi,
-    bool? p2Connected,
-    int? p2Battery,
-    String? p2Wifi,
-  }) {
-    return CombinedTelemetry(
-      p1Connected: p1Connected ?? this.p1Connected,
-      p1Battery: p1Battery ?? this.p1Battery,
-      p1Wifi: p1Wifi ?? this.p1Wifi,
-      p2Connected: p2Connected ?? this.p2Connected,
-      p2Battery: p2Battery ?? this.p2Battery,
-      p2Wifi: p2Wifi ?? this.p2Wifi,
-    );
-  }
-}
 
 class HostServer {
   static final HostServer instance = HostServer._internal();
@@ -51,24 +14,6 @@ class HostServer {
   HttpServer? _server;
   WebSocket? _p2Socket;
   nsd.Registration? _registration;
-  Timer? _telemetryTimer;
-
-  final Battery _battery = Battery();
-  final Connectivity _connectivity = Connectivity();
-
-  // Telemetry notifier containing merged P1 + P2 network/battery states
-  final ValueNotifier<CombinedTelemetry> telemetryNotifier = ValueNotifier<CombinedTelemetry>(
-    CombinedTelemetry(
-      p1Connected: true,
-      p1Battery: 100,
-      p1Wifi: 'Searching...',
-      p2Connected: false,
-      p2Battery: 0,
-      p2Wifi: 'Offline',
-    ),
-  );
-
-  final ValueNotifier<String> logNotifier = ValueNotifier<String>('Server Stopped');
 
   bool get isRunning => _server != null;
 
@@ -110,8 +55,6 @@ class HostServer {
         _log('mDNS registration failed: $e');
       });
 
-      // Start Host local battery and Wi-Fi check loop (every 8 seconds)
-      _startLocalTelemetryLoop();
 
     } catch (e) {
       _log('Failed to start server: $e');
@@ -123,8 +66,6 @@ class HostServer {
   /// Stops server, unregisters mDNS, and closes sockets
   Future<void> stop() async {
     _log('Shutting down Console Server...');
-    _telemetryTimer?.cancel();
-    _telemetryTimer = null;
 
     if (_p2Socket != null) {
       await _p2Socket!.close(WebSocketStatus.normalClosure, 'Console Host shutting down');
@@ -141,14 +82,6 @@ class HostServer {
       _registration = null;
     }
 
-    telemetryNotifier.value = CombinedTelemetry(
-      p1Connected: false,
-      p1Battery: 0,
-      p1Wifi: 'Offline',
-      p2Connected: false,
-      p2Battery: 0,
-      p2Wifi: 'Offline',
-    );
     _log('Console Server Stopped');
   }
 
@@ -161,7 +94,6 @@ class HostServer {
 
     _p2Socket = socket;
     _log('Player 2 Controller Squad connected');
-    _updateTelemetry(p2Connected: true);
 
     socket.listen(
       (message) {
@@ -176,100 +108,22 @@ class HostServer {
             // Feed directly into Active Libretro Core on Port 2 (index 1)
             LibretroEngine.activeInstance?.updateButtonState(1, buttonId, pressed);
           }
-        } else if (message is String) {
-          // Low-frequency JSON status packets
-          try {
-            final data = jsonDecode(message);
-            final int battery = data['battery'] ?? 100;
-            final String wifi = data['wifi'] ?? 'Wi-Fi';
-            
-            _updateTelemetry(
-              p2Battery: battery,
-              p2Wifi: wifi,
-            );
-          } catch (e) {
-            _log('Error parsing client telemetry packet: $e');
-          }
         }
       },
       onDone: () {
         _log('Player 2 Controller disconnected');
         _p2Socket = null;
-        _updateTelemetry(
-          p2Connected: false,
-          p2Battery: 0,
-          p2Wifi: 'Offline',
-        );
       },
       onError: (e) {
         _log('Player 2 connection error: $e');
         _p2Socket = null;
-        _updateTelemetry(
-          p2Connected: false,
-          p2Battery: 0,
-          p2Wifi: 'Offline',
-        );
       },
       cancelOnError: true,
     );
   }
 
-  void _startLocalTelemetryLoop() {
-    _telemetryTimer?.cancel();
-    _telemetryTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
-      _pollLocalTelemetry();
-    });
-    _pollLocalTelemetry(); // Initial poll
-  }
-
-  Future<void> _pollLocalTelemetry() async {
-    try {
-      final int level = await _battery.batteryLevel;
-      final results = await _connectivity.checkConnectivity();
-      String wifiStr = 'Disconnected';
-      if (results.contains(ConnectivityResult.wifi)) {
-        try {
-          final rssi = await const MethodChannel('com.retromesh.console/wifi').invokeMethod<int>('getWifiRssi');
-          wifiStr = rssi != null ? '$rssi dBm' : 'Wi-Fi';
-        } catch (e) {
-          wifiStr = 'Wi-Fi';
-        }
-      } else if (results.contains(ConnectivityResult.mobile)) {
-        wifiStr = 'Mobile';
-      } else if (results.isNotEmpty && results.first != ConnectivityResult.none) {
-        wifiStr = 'Ethernet';
-      }
-
-      _updateTelemetry(
-        p1Connected: true,
-        p1Battery: level,
-        p1Wifi: wifiStr,
-      );
-    } catch (e) {
-      debugPrint('Error polling local battery/wifi metrics: $e');
-    }
-  }
-
-  void _updateTelemetry({
-    bool? p1Connected,
-    int? p1Battery,
-    String? p1Wifi,
-    bool? p2Connected,
-    int? p2Battery,
-    String? p2Wifi,
-  }) {
-    telemetryNotifier.value = telemetryNotifier.value.copyWith(
-      p1Connected: p1Connected,
-      p1Battery: p1Battery,
-      p1Wifi: p1Wifi,
-      p2Connected: p2Connected,
-      p2Battery: p2Battery,
-      p2Wifi: p2Wifi,
-    );
-  }
 
   void _log(String message) {
-    logNotifier.value = '[${DateTime.now().toIso8601String().substring(11, 19)}] $message';
-    debugPrint('[HostServer] $message');
+    ConsoleLogger.log('HostServer', message);
   }
 }

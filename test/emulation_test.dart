@@ -52,28 +52,6 @@ void main() {
   });
 
   group('Network Telemetry Serialization Tests', () {
-    test('CombinedTelemetry copyWith updates properties correctly', () {
-      final base = CombinedTelemetry(
-        p1Connected: true,
-        p1Battery: 90,
-        p1Wifi: 'Wi-Fi',
-        p2Connected: false,
-        p2Battery: 0,
-        p2Wifi: 'Offline',
-      );
-
-      final updated = base.copyWith(
-        p2Connected: true,
-        p2Battery: 75,
-        p2Wifi: 'Wi-Fi (Excellent)',
-      );
-
-      expect(updated.p1Connected, isTrue);
-      expect(updated.p1Battery, 90);
-      expect(updated.p2Connected, isTrue);
-      expect(updated.p2Battery, 75);
-      expect(updated.p2Wifi, 'Wi-Fi (Excellent)');
-    });
 
     test('Telemetry JSON packs/unpacks correctly', () {
       final int originalBattery = 88;

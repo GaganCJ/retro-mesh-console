@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:battery_plus/battery_plus.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import '../utils/logger.dart';
 import 'package:nsd/nsd.dart' as nsd;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -14,16 +12,10 @@ class ClientSocket {
 
   WebSocketChannel? _channel;
   nsd.Discovery? _discovery;
-  Timer? _telemetryTimer;
-
   // Cached button states to suppress repeat events during pointer drag sweeps
   final Map<int, bool> _buttonStateCache = {};
-  
-  final Battery _battery = Battery();
-  final Connectivity _connectivity = Connectivity();
 
   final ValueNotifier<String> connectionStatusNotifier = ValueNotifier<String>('Disconnected');
-  final ValueNotifier<String> logNotifier = ValueNotifier<String>('Client Stopped');
 
   bool get isConnected => _channel != null;
 
@@ -81,12 +73,9 @@ class ClientSocket {
       final wsUrl = Uri.parse('ws://$host:$port');
       _channel = WebSocketChannel.connect(wsUrl);
       
-      // Send initial connection telemetry packet
+      // Send initial connection status
       connectionStatusNotifier.value = 'Connected';
       _log('WebSocket connection established successfully');
-      
-      // Start 8-second interval telemetry update loop
-      _startTelemetryLoop();
 
       // Listen for socket events (such as closure/errors)
       _channel!.stream.listen(
@@ -134,51 +123,9 @@ class ClientSocket {
     }
   }
 
-  void _startTelemetryLoop() {
-    _telemetryTimer?.cancel();
-    _telemetryTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
-      _sendTelemetryPacket();
-    });
-    _sendTelemetryPacket(); // Initial telemetry flush
-  }
-
-  Future<void> _sendTelemetryPacket() async {
-    if (!isConnected) return;
-
-    try {
-      final int level = await _battery.batteryLevel;
-      final results = await _connectivity.checkConnectivity();
-      
-      String wifiStr = 'Disconnected';
-      if (results.contains(ConnectivityResult.wifi)) {
-        try {
-          final rssi = await const MethodChannel('com.retromesh.console/wifi').invokeMethod<int>('getWifiRssi');
-          wifiStr = rssi != null ? '$rssi dBm' : 'Wi-Fi';
-        } catch (e) {
-          wifiStr = 'Wi-Fi';
-        }
-      } else if (results.contains(ConnectivityResult.mobile)) {
-        wifiStr = 'Mobile';
-      } else if (results.isNotEmpty && results.first != ConnectivityResult.none) {
-        wifiStr = 'Ethernet';
-      }
-
-      final payload = jsonEncode({
-        'battery': level,
-        'wifi': wifiStr,
-      });
-
-      _channel!.sink.add(payload);
-    } catch (e) {
-      _log('Telemetry packing error: $e');
-    }
-  }
-
   /// Gracefully close connection sockets and timer handles
   void disconnect() {
     _log('Disconnecting client socket...');
-    _telemetryTimer?.cancel();
-    _telemetryTimer = null;
     
     if (_channel != null) {
       _channel!.sink.close(WebSocketStatus.normalClosure);
@@ -191,7 +138,6 @@ class ClientSocket {
   }
 
   void _log(String message) {
-    logNotifier.value = '[${DateTime.now().toIso8601String().substring(11, 19)}] $message';
-    debugPrint('[ClientSocket] $message');
+    ConsoleLogger.log('ClientSocket', message);
   }
 }

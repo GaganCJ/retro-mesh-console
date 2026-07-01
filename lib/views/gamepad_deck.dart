@@ -1,6 +1,8 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../utils/logger.dart';
+import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../network/host_server.dart';
 import '../network/client_socket.dart';
@@ -27,7 +29,6 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   
   bool _isCasting = false; // Track if cast dialog presentation is active
   bool _isConnectingTV = false; // Track if waiting for OS Cast dialog to return
-  final ValueNotifier<List<int>> _buttonQueueNotifier = ValueNotifier<List<int>>([]);
 
   @override
   void initState() {
@@ -170,13 +171,6 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
     } else {
       // Client maps to Port 2 (index 1) by sending over WebSocket
       ClientSocket.instance.sendButtonInput(buttonId, pressed);
-    }
-    
-    if (pressed) {
-      final queue = List<int>.from(_buttonQueueNotifier.value);
-      queue.add(buttonId);
-      if (queue.length > 8) queue.removeAt(0);
-      _buttonQueueNotifier.value = queue;
     }
   }
 
@@ -363,63 +357,57 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   // --- HOST LAYOUTS (P1) ---
 
   Widget _buildHostLayout() {
-    return ValueListenableBuilder<CombinedTelemetry>(
-      valueListenable: HostServer.instance.telemetryNotifier,
-      builder: (context, telemetry, child) {
-        return SafeArea(
-          child: Column(
-            children: [
-              _buildHeaderBar(
-                title: 'CONSOLE HOST • PORT 1',
-                subtitle: widget.romName,
-                color: const Color(0xFFFF2E93),
-                extraActions: [
-                  TextButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          backgroundColor: const Color(0xFF1E1E38),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          title: const Text('Exit Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontWeight: FontWeight.bold)),
-                          content: const Text('Are you sure you want to exit? This will stop the emulation and disconnect all players.', style: TextStyle(color: Colors.white70, fontFamily: 'Outfit')),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                _exitGame(context);
-                              },
-                              child: const Text('EXIT', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
-                            ),
-                          ],
+    return SafeArea(
+      child: Column(
+        children: [
+          _buildHeaderBar(
+            title: 'CONSOLE HOST • PORT 1',
+            subtitle: widget.romName,
+            color: const Color(0xFFFF2E93),
+            extraActions: [
+              TextButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: const Color(0xFF1E1E38),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Text('Exit Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontWeight: FontWeight.bold)),
+                      content: const Text('Are you sure you want to exit? This will stop the emulation and disconnect all players.', style: TextStyle(color: Colors.white70, fontFamily: 'Outfit')),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('CANCEL', style: TextStyle(color: Colors.white38)),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.exit_to_app, color: Color(0xFFEF4444), size: 16),
-                    label: const Text(
-                      'EXIT GAME',
-                      style: TextStyle(
-                        color: Color(0xFFEF4444),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Outfit',
-                      ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _exitGame(context);
+                          },
+                          child: const Text('EXIT', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                        ),
+                      ],
                     ),
+                  );
+                },
+                icon: const Icon(Icons.exit_to_app, color: Color(0xFFEF4444), size: 16),
+                label: const Text(
+                  'EXIT GAME',
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Outfit',
                   ),
-                ],
-              ),
-              _buildTelemetryBar(telemetry),
-              Expanded(
-                child: _buildGamepadControls(),
+                ),
               ),
             ],
           ),
-        );
-      },
+          Expanded(
+            child: _buildGamepadControls(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -721,6 +709,8 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        _buildDebugTerminal(),
+        const SizedBox(height: 24),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -737,6 +727,49 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildDebugTerminal() {
+    return Container(
+      width: 168,
+      height: 96,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF879E8B), // Classic Nokia green/gray
+        border: Border.all(color: const Color(0xFF2C3E2D), width: 3),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF879E8B).withValues(alpha: 0.2),
+            blurRadius: 10,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      child: ValueListenableBuilder<List<String>>(
+        valueListenable: ConsoleLogger.logs,
+        builder: (context, logs, _) {
+          return ListView.builder(
+            reverse: true, // Display newest logs at bottom
+            itemCount: logs.length,
+            itemBuilder: (context, index) {
+              // Since it's reversed, index 0 is the newest log at the bottom
+              final logIdx = logs.length - 1 - index;
+              return Text(
+                logs[logIdx],
+                style: const TextStyle(
+                  fontFamily: 'Courier',
+                  fontSize: 7,
+                  color: Color(0xFF1B261C), // Dark Nokia LCD text color
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -849,163 +882,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
     );
   }
 
-  // --- TV RENDERING VIEWPORT & HUD BAR ---
 
-  Widget _buildTelemetryBar(CombinedTelemetry telemetry) {
-    return Container(
-      height: 60,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0B0B1D),
-        border: Border(
-          top: BorderSide(color: Colors.white12, width: 1.5),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // P1 Host status
-          _buildTelemetryNode(
-            playerLabel: 'P1 CONSOLE',
-            connected: telemetry.p1Connected,
-            battery: telemetry.p1Battery,
-            wifi: telemetry.p1Wifi,
-            color: const Color(0xFFFF2E93),
-          ),
-
-          const SizedBox(width: 8),
-
-          // Button Press Queue
-          Expanded(
-            child: ValueListenableBuilder<List<int>>(
-              valueListenable: _buttonQueueNotifier,
-              builder: (context, queue, _) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: queue.map((id) => _buildButtonQueueIcon(id)).toList(),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // P2 Client status
-          _buildTelemetryNode(
-            playerLabel: 'P2 CONTROLLER',
-            connected: telemetry.p2Connected,
-            battery: telemetry.p2Battery,
-            wifi: telemetry.p2Wifi,
-            color: const Color(0xFF00E5FF),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildButtonQueueIcon(int buttonId) {
-    String text;
-    switch (buttonId) {
-      case 1: text = '▲'; break;
-      case 2: text = '▼'; break;
-      case 3: text = '◀'; break;
-      case 4: text = '▶'; break;
-      case 5: text = 'A'; break;
-      case 6: text = 'B'; break;
-      case 7: text = 'X'; break;
-      case 8: text = 'Y'; break;
-      case 9: text = 'ST'; break;
-      case 10: text = 'SE'; break;
-      case 12: text = 'L1'; break;
-      case 13: text = 'R1'; break;
-      case 14: text = 'L2'; break;
-      case 15: text = 'R2'; break;
-      default: text = '?'; break;
-    }
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildTelemetryNode({
-    required String playerLabel,
-    required bool connected,
-    required int battery,
-    required String wifi,
-    required Color color,
-  }) {
-    final statusColor = connected ? const Color(0xFF10B981) : const Color(0xFFEF4444);
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: statusColor,
-            boxShadow: [
-              BoxShadow(
-                color: statusColor.withOpacity(0.5),
-                blurRadius: 6,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              playerLabel,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.battery_std, size: 11, color: Colors.white.withOpacity(0.5)),
-                const SizedBox(width: 2),
-                Text(
-                  connected ? '$battery%' : '--',
-                  style: TextStyle(
-                    color: connected ? Colors.white : Colors.white24,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.wifi, size: 11, color: Colors.white.withOpacity(0.5)),
-                const SizedBox(width: 2),
-                Text(
-                  connected ? wifi : '--',
-                  style: TextStyle(
-                    color: connected ? Colors.white : Colors.white24,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            )
-          ],
-        )
-      ],
-    );
-  }
 }
 
 /*

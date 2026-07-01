@@ -7,7 +7,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-
+import '../utils/logger.dart';
 // --- Libretro Constants ---
 const int RETRO_DEVICE_JOYPAD = 1;
 const int RETRO_DEVICE_ID_JOYPAD_B = 0;
@@ -54,8 +54,8 @@ typedef retro_audio_sample_batch_t = IntPtr Function(Pointer<Int16> data, IntPtr
 typedef retro_input_poll_t = Void Function();
 typedef retro_input_state_t = Int16 Function(Uint32 port, Uint32 device, Uint32 index, Uint32 id);
 
-typedef render_to_window_c = Void Function(Pointer<Uint8> pixels, Int32 width, Int32 height);
-typedef render_to_window_dart = void Function(Pointer<Uint8> pixels, int width, int height);
+typedef render_to_window_c = Void Function(Pointer<Uint16> pixels, Int32 width, Int32 height);
+typedef render_to_window_dart = void Function(Pointer<Uint16> pixels, int width, int height);
 
 // --- Top-Level Callback Functions for FFI registration ---
 
@@ -190,6 +190,7 @@ class LibretroEngine {
       } else if (Platform.isIOS) {
         // Statically linked or loaded via Framework bundle on iOS
         _lib = DynamicLibrary.process();
+        _renderToWindow = DynamicLibrary.process().lookupFunction<render_to_window_c, render_to_window_dart>('render_to_window_ios');
       } else {
         _lib = DynamicLibrary.open(corePath);
       }
@@ -401,49 +402,15 @@ class LibretroEngine {
   void _handleVideoRefresh(Pointer<Void> data, int width, int height, int pitch) {
     if (data == nullptr) return;
     
-    // Convert core frame buffer based on format. For emulation, we assume RGB565 or XRGB8888.
-    // Real retro games are small; NES/SNES/Sega are ~256x224 to ~320x224.
-    // Convert buffer directly to RGBA8888 for Flutter presentation
-    final totalPixels = width * height;
-    final rgbaData = Uint8List(totalPixels * 4);
-    
-    // Standard Pitch represents width in bytes of a single scanline.
-    // 2 bytes per pixel for RGB565.
-    final pitchPixels = pitch ~/ 2;
-    final Pointer<Uint16> src = data.cast<Uint16>();
-
-    int destIdx = 0;
-    for (int y = 0; y < height; y++) {
-      final srcRowStart = y * pitchPixels;
-      for (int x = 0; x < width; x++) {
-        final pixel = src[srcRowStart + x];
-        // Extract 5-6-5 RGB bits
-        final r = ((pixel >> 11) & 0x1F) * 255 ~/ 31;
-        final g = ((pixel >> 5) & 0x3F) * 255 ~/ 63;
-        final b = (pixel & 0x1F) * 255 ~/ 31;
-        
-        rgbaData[destIdx++] = r;
-        rgbaData[destIdx++] = g;
-        rgbaData[destIdx++] = b;
-        rgbaData[destIdx++] = 255; // Alpha
-      }
-    }
-
-    rawFrameNotifier.value = rgbaData;
-
-    // Send the frame buffer directly to the GPU via JNI!
-    // Allocate native memory for the frame, copy it, and send the pointer
-    final nativePixels = calloc<Uint8>(rgbaData.length);
-    final nativeList = nativePixels.asTypedList(rgbaData.length);
-    nativeList.setAll(0, rgbaData);
+    // RGB565 is natively supported by ANativeWindow_setBuffersGeometry
+    // We skip the costly RGB888 conversion and directly blast the 16-bit array to C++
+    final Pointer<Uint16> pixels16 = data.cast<Uint16>();
     
     try {
-      _renderToWindow(nativePixels, width, height);
+      _renderToWindow(pixels16, width, height);
     } catch (e) {
       _log('Failed to render to native window: $e');
     }
-    
-    calloc.free(nativePixels);
   }
 
   void _handleAudioSample(int left, int right) {
@@ -612,8 +579,7 @@ class LibretroEngine {
   }
 
   void _log(String message) {
-    logNotifier.value = '[${DateTime.now().toIso8601String().substring(11, 19)}] $message';
-    debugPrint('[LibretroEngine] $message');
+    ConsoleLogger.log('Libretro', message);
   }
 }
 

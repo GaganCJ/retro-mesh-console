@@ -2,6 +2,9 @@ import Flutter
 import UIKit
 import AVKit
 
+@_silgen_name("set_global_tv_layer")
+func set_global_tv_layer(_ layer: UnsafeMutableRawPointer)
+
 class CastingAdapter: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var methodChannel: FlutterMethodChannel?
     private var eventChannel: FlutterEventChannel?
@@ -132,32 +135,10 @@ class CastingAdapter: NSObject, FlutterPlugin, FlutterStreamHandler {
             extWindow.rootViewController = externalViewController
             extWindow.isHidden = false
             self.externalWindow = extWindow
-        }
-    }
-    
-    private func renderFrame(data: Data) {
-        let width = 256
-        let height = 224
-        
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
-        
-        guard let provider = CGDataProvider(data: data as CFData) else { return }
-        guard let cgImage = CGImage(width: width,
-                                    height: height,
-                                    bitsPerComponent: 8,
-                                    bitsPerPixel: 32,
-                                    bytesPerRow: width * 4,
-                                    space: colorSpace,
-                                    bitmapInfo: bitmapInfo,
-                                    provider: provider,
-                                    decode: nil,
-                                    shouldInterpolate: false,
-                                    intent: .defaultIntent) else { return }
-        
-        let uiImage = UIImage(cgImage: cgImage)
-        DispatchQueue.main.async { [weak self] in
-            self?.imageView?.image = uiImage
+
+            // Pass the CALayer to our C++ Native Render engine
+            let unmanagedLayer = Unmanaged.passUnretained(iv.layer)
+            set_global_tv_layer(unmanagedLayer.toOpaque())
         }
     }
 }
