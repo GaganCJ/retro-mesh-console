@@ -629,39 +629,10 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   Widget _buildGamepadControls() {
     return Stack(
       children: [
-        // Native GPU-Accelerated Crisp Texture
-        if (widget.isHost && widget.engine != null)
-          Positioned.fill(
-            child: ValueListenableBuilder<int?>(
-              valueListenable: widget.engine!.textureIdNotifier,
-              builder: (context, id, _) {
-                if (id == null) return const Center(child: CircularProgressIndicator());
-                return SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: SizedBox(
-                      width: 256,
-                      height: 224,
-                      child: Texture(
-                        textureId: id,
-                        filterQuality: FilterQuality.none, // Absolute nearest-neighbor pixel perfection
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        
-        // Dark retro scanline overlay
-        if (widget.isHost)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: Colors.black.withOpacity(0.3),
-              ),
-            ),
-          ),
+        // Solid black background for pure controller experience
+        Positioned.fill(
+          child: Container(color: Colors.black),
+        ),
 
         // Left Side: D-pad
         Align(
