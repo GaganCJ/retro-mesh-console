@@ -841,108 +841,75 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
 
   // --- TV RENDERING VIEWPORT & HUD BAR ---
 
-  Widget _buildTVViewport(CombinedTelemetry telemetry) {
-    if (widget.engine == null) {
-      return Container(
-        color: Colors.black,
-        child: const Center(
-          child: Text(
-            'NO ENGINE ASSIGNED',
-            style: TextStyle(color: Colors.white30, fontSize: 12),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      color: const Color(0xFF030308),
-      child: Column(
-        children: [
-          // Upper frame: Emulator Output
-          Expanded(
-            child: ValueListenableBuilder<ui.Image?>(
-              valueListenable: widget.engine!.currentFrameNotifier,
-              builder: (context, frame, child) {
-                return CustomPaint(
-                  painter: EmulationCanvasPainter(frame),
-                  child: Container(),
-                );
-              },
-            ),
-          ),
-          
   Widget _buildTelemetryBar(CombinedTelemetry telemetry) {
     return Container(
       height: 60,
       decoration: const BoxDecoration(
-              color: Color(0xFF0B0B1D),
-              border: Border(
-                top: BorderSide(color: Colors.white12, width: 1.5),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        color: Color(0xFF0B0B1D),
+        border: Border(
+          top: BorderSide(color: Colors.white12, width: 1.5),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // P1 Host status
+          _buildTelemetryNode(
+            playerLabel: 'P1 CONSOLE',
+            connected: telemetry.p1Connected,
+            battery: telemetry.p1Battery,
+            wifi: telemetry.p1Wifi,
+            color: const Color(0xFFFF2E93),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Core Name / Engine Mode Info
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // P1 Host status
-                _buildTelemetryNode(
-                  playerLabel: 'P1 CONSOLE',
-                  connected: telemetry.p1Connected,
-                  battery: telemetry.p1Battery,
-                  wifi: telemetry.p1Wifi,
-                  color: const Color(0xFFFF2E93),
-                ),
-
-                const SizedBox(width: 8),
-
-                // Core Name / Engine Mode Info
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.engine!.isMockMode ? 'SIMULATOR MODE' : 'HARDWARE FFI MODE',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF00E5FF),
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      ValueListenableBuilder<String>(
-                        valueListenable: widget.engine!.logNotifier,
-                        builder: (context, log, child) {
-                          return Text(
-                            log,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.35),
-                              fontSize: 8,
-                              fontFamily: 'monospace',
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                Text(
+                  widget.engine!.isMockMode ? 'SIMULATOR MODE' : 'HARDWARE FFI MODE',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF00E5FF),
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
                   ),
                 ),
-
-                const SizedBox(width: 8),
-
-                // P2 Client status
-                _buildTelemetryNode(
-                  playerLabel: 'P2 CONTROLLER',
-                  connected: telemetry.p2Connected,
-                  battery: telemetry.p2Battery,
-                  wifi: telemetry.p2Wifi,
-                  color: const Color(0xFF00E5FF),
+                const SizedBox(height: 3),
+                ValueListenableBuilder<String>(
+                  valueListenable: widget.engine!.logNotifier,
+                  builder: (context, log, child) {
+                    return Text(
+                      log,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.35),
+                        fontSize: 8,
+                        fontFamily: 'monospace',
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // P2 Client status
+          _buildTelemetryNode(
+            playerLabel: 'P2 CONTROLLER',
+            connected: telemetry.p2Connected,
+            battery: telemetry.p2Battery,
+            wifi: telemetry.p2Wifi,
+            color: const Color(0xFF00E5FF),
           ),
         ],
       ),

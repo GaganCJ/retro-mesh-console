@@ -17,9 +17,12 @@ It projects an independent gameplay viewport to a television (via native Android
 * **Dart FFI Libretro Core Wrapper**: Direct C/C++ FFI bindings to load compiled emulator binaries (`.so` / `.dylib`), managing native callbacks for video refresh frames, audio batch samples, and input polling.
 * **Interactive Mock Fallback**: Includes a 60 FPS simulated graphics engine rendering bouncing interactive components and virtual button indicator chips to verify dual-device setups without requiring physical C/C++ core binaries.
 * **Dual-Screen TV Projection**: Uses method channels to allocate native presentation boundaries:
-  * **Android**: Renders on external displays using `android.app.Presentation` dialog views.
+  * **Android**: Renders on external displays using `android.app.Presentation` dialog views with **4:3 Aspect Ratio Nearest-Neighbor Integer Scaling** for crisp retro pixels.
   * **iOS**: Listens for AirPlay connections to display root controllers in a secondary `UIWindow`.
-* **Telemetry HUD**: Displays connection states (glowing green/red status chips), battery charge levels, and network connectivity indicators for both devices in a static bottom 80px HUD bar.
+* **Miracast Frame Throttling**: intelligently throttles the TV projection to 20 FPS to prevent GC/Miracast stutter while maintaining a smooth 60 FPS simulation loop on the host device.
+* **Audio FFI Bridge**: Captures raw PCM audio samples from the Libretro core via Dart FFI and streams them over a MethodChannel directly to the native `AudioTrack` API for zero-latency audio playback.
+* **Context Menus & 2.4G Controller Support**: Includes in-game pause overlays and full mappings for L1/L2/R1/R2 shoulder triggers for external physical gamepads.
+* **Telemetry HUD**: Displays connection states (glowing green/red status chips), battery charge levels, and network connectivity indicators for both devices natively overlaid on the Host Gamepad interface.
 
 ---
 
