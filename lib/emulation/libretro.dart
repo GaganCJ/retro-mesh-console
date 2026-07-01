@@ -82,7 +82,10 @@ class LibretroEngine {
   static LibretroEngine? activeInstance;
 
   // Emulation State Notifiers
+  // For local UI rendering
   final ValueNotifier<ui.Image?> currentFrameNotifier = ValueNotifier<ui.Image?>(null);
+  // For native dual-screen projection
+  final ValueNotifier<Uint8List?> rawFrameNotifier = ValueNotifier<Uint8List?>(null);
   final ValueNotifier<String> logNotifier = ValueNotifier<String>('Engine Initialized');
 
   // Input states for Port 1 (P1) and Port 2 (P2)
@@ -369,6 +372,8 @@ class LibretroEngine {
       }
     }
 
+    rawFrameNotifier.value = rgbaData;
+
     ui.decodeImageFromPixels(
       rgbaData,
       width,
@@ -489,6 +494,8 @@ class LibretroEngine {
       }
     }
 
+    rawFrameNotifier.value = rgbaData;
+    
     ui.decodeImageFromPixels(
       rgbaData,
       _mockWidth,

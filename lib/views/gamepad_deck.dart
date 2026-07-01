@@ -51,7 +51,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
 
   void _onFrameGenerated() {
     if (_isCasting) {
-      final frame = widget.engine?.currentFrameNotifier.value;
+      final frame = widget.engine?.rawFrameNotifier.value;
       if (frame != null) {
         _projectionChannel.invokeMethod('sendFrame', frame);
       }
@@ -93,7 +93,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
             _isConnectingTV = false;
             _isCasting = true;
           });
-          widget.engine?.currentFrameNotifier.addListener(_onFrameGenerated);
+          widget.engine?.rawFrameNotifier.addListener(_onFrameGenerated);
         }
       });
     }
@@ -103,7 +103,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (widget.isHost) {
-      widget.engine?.currentFrameNotifier.removeListener(_onFrameGenerated);
+      widget.engine?.rawFrameNotifier.removeListener(_onFrameGenerated);
     }
     // Restore orientation settings
     SystemChrome.setPreferredOrientations([
