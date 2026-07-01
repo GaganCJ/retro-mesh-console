@@ -229,6 +229,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   void _showMenuOverlay() {
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E38),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -238,81 +239,87 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
             const SizedBox(width: 10),
             const Text(
               'CONSOLE MENU',
-              style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontWeight: FontWeight.bold),
+              style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.play_arrow, color: Colors.white70),
-              title: const Text('Resume Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit')),
-              onTap: () {
-                Navigator.pop(ctx);
-                if (widget.engine!.isPaused) {
-                  _togglePause();
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.refresh, color: Colors.white70),
-              title: const Text('Reset Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit')),
-              onTap: () {
-                Navigator.pop(ctx);
-                if (widget.engine != null) {
-                  widget.engine!.resetGame();
-                  if (widget.engine!.isPaused) {
-                    _togglePause();
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Resetting Game...')),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.save, color: Colors.white70),
-              title: const Text('Quick Save (Slot 1)', style: TextStyle(color: Colors.white, fontFamily: 'Outfit')),
-              onTap: () async {
-                Navigator.pop(ctx);
-                if (widget.engine != null) {
-                  bool success = await widget.engine!.saveState(1);
-                  if (mounted) {
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.play_arrow, color: Colors.white70),
+                title: const Text('Resume Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontSize: 14)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.refresh, color: Colors.white70),
+                title: const Text('Reset Game', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontSize: 14)),
+                onTap: () {
+                  if (widget.engine != null) {
+                    widget.engine!.resetGame();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(success ? 'State Saved!' : 'Failed to save state')),
+                      const SnackBar(content: Text('Resetting Game...')),
                     );
                   }
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.folder_open, color: Colors.white70),
-              title: const Text('Quick Load (Slot 1)', style: TextStyle(color: Colors.white, fontFamily: 'Outfit')),
-              onTap: () async {
-                Navigator.pop(ctx);
-                if (widget.engine != null) {
-                  bool success = await widget.engine!.loadState(1);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(success ? 'State Loaded!' : 'Failed to load state or slot empty')),
-                    );
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.save, color: Colors.white70),
+                title: const Text('Quick Save (Slot 1)', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontSize: 14)),
+                onTap: () async {
+                  Navigator.pop(ctx); // Pop first so the `.then()` handler resumes the game visually
+                  if (widget.engine != null) {
+                    bool success = await widget.engine!.saveState(1);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(success ? 'State Saved!' : 'Failed to save state')),
+                      );
+                    }
                   }
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.exit_to_app, color: Color(0xFFEF4444)),
-              title: const Text('Exit to Main Menu', style: TextStyle(color: Color(0xFFEF4444), fontFamily: 'Outfit', fontWeight: FontWeight.bold)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _exitGame(context);
-              },
-            ),
-          ],
+                },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.folder_open, color: Colors.white70),
+                title: const Text('Quick Load (Slot 1)', style: TextStyle(color: Colors.white, fontFamily: 'Outfit', fontSize: 14)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  if (widget.engine != null) {
+                    bool success = await widget.engine!.loadState(1);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(success ? 'State Loaded!' : 'Failed to load state or slot empty')),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.exit_to_app, color: Color(0xFFEF4444)),
+                title: const Text('Exit to Main Menu', style: TextStyle(color: Color(0xFFEF4444), fontFamily: 'Outfit', fontWeight: FontWeight.bold, fontSize: 14)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exitGame(context);
+                },
+              ),
+            ],
+          ),
         ),
       ),
-    );
+    ).then((_) {
+      // Unpause whenever the dialog is dismissed (either by button tap or tapping outside)
+      if (widget.engine != null && widget.engine!.isPaused) {
+        _togglePause();
+      }
+    });
   }
 
   void _exitGame(BuildContext context) {
