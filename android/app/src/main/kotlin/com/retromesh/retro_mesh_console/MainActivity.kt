@@ -36,7 +36,7 @@ class MainActivity : FlutterActivity() {
         val textureRegistry = flutterEngine.renderer
         val textureEntry = textureRegistry.createSurfaceTexture()
         val surfaceTexture = textureEntry.surfaceTexture()
-        surfaceTexture.setDefaultBufferSize(1024, 896) // 4x scale to maintain crisp pixels
+        surfaceTexture.setDefaultBufferSize(256, 224) // Native resolution for crisp rendering
         val surface = android.view.Surface(surfaceTexture)
         NativeRender.setFlutterSurface(surface)
 

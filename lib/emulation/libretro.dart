@@ -127,6 +127,9 @@ class LibretroEngine {
   late void Function() _retroUnloadGame;
   late void Function(Pointer<retro_system_info>) _retroGetSystemInfo;
   late void Function() _retroReset;
+  late int Function() _retroSerializeSize;
+  late bool Function(Pointer<Void>, int) _retroSerialize;
+  late bool Function(Pointer<Void>, int) _retroUnserialize;
 
   late render_to_window_dart _renderToWindow;
 
@@ -262,6 +265,10 @@ class LibretroEngine {
     _retroRun = dylib.lookupFunction<Void Function(), void Function()>('retro_run');
     _retroUnloadGame = dylib.lookupFunction<Void Function(), void Function()>('retro_unload_game');
     _retroReset = dylib.lookupFunction<Void Function(), void Function()>('retro_reset');
+
+    _retroSerializeSize = dylib.lookupFunction<Size Function(), int Function()>('retro_serialize_size');
+    _retroSerialize = dylib.lookupFunction<Bool Function(Pointer<Void>, Size), bool Function(Pointer<Void>, int)>('retro_serialize');
+    _retroUnserialize = dylib.lookupFunction<Bool Function(Pointer<Void>, Size), bool Function(Pointer<Void>, int)>('retro_unserialize');
   }
 
   void _setupCallbacks() {
@@ -310,12 +317,63 @@ class LibretroEngine {
   }
 
   void resetGame() {
-    _log('Resetting game...');
-    if (isMockMode) {
-      _mockX = 120;
-      _mockY = 100;
-    } else if (_isCoreInitialized) {
+    if (_isCoreInitialized && !isMockMode) {
       _retroReset();
+      _log('Game Reset');
+    }
+  }
+
+  Future<bool> saveState(int slot) async {
+    if (isMockMode) return false;
+    try {
+      final size = _retroSerializeSize();
+      if (size == 0) return false;
+      
+      final buffer = calloc<Uint8>(size);
+      final success = _retroSerialize(buffer.cast<Void>(), size);
+      
+      if (success) {
+        final bytes = buffer.asTypedList(size);
+        final docDir = await getApplicationDocumentsDirectory();
+        final saveFile = File('${docDir.path}/save_state_$slot.st');
+        await saveFile.writeAsBytes(bytes);
+        _log('State saved to slot $slot ($size bytes)');
+      }
+      calloc.free(buffer);
+      return success;
+    } catch (e) {
+      _log('Failed to save state: $e');
+      return false;
+    }
+  }
+
+  Future<bool> loadState(int slot) async {
+    if (isMockMode) return false;
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final saveFile = File('${docDir.path}/save_state_$slot.st');
+      if (!await saveFile.exists()) return false;
+
+      final bytes = await saveFile.readAsBytes();
+      final size = _retroSerializeSize();
+      
+      if (bytes.length != size) {
+        _log('State size mismatch. Expected $size, got ${bytes.length}');
+        return false;
+      }
+
+      final buffer = calloc<Uint8>(size);
+      buffer.asTypedList(size).setAll(0, bytes);
+      
+      final success = _retroUnserialize(buffer.cast<Void>(), size);
+      if (success) {
+        _log('State loaded from slot $slot');
+      }
+      calloc.free(buffer);
+      return success;
+    } catch (e) {
+      _log('Failed to load state: $e');
+      return false;
     }
   }
 

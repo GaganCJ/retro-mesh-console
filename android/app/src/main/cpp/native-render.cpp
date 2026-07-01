@@ -44,30 +44,17 @@ extern "C" void render_to_window(const uint16_t* pixels, int width, int height) 
     auto drawToWindow = [&](ANativeWindow* window) {
         if (!window) return;
         
-        const int scale = 4;
-        int scaledWidth = width * scale;
-        int scaledHeight = height * scale;
-        
-        ANativeWindow_setBuffersGeometry(window, scaledWidth, scaledHeight, WINDOW_FORMAT_RGB_565);
+        ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGB_565);
         
         ANativeWindow_Buffer buffer;
         if (ANativeWindow_lock(window, &buffer, nullptr) == 0) {
             uint16_t* dst = static_cast<uint16_t*>(buffer.bits);
             const uint16_t* src = pixels;
             
+            // Fast row-by-row copy in case buffer.stride != width
             int dstStride = buffer.stride;
-            
             for (int y = 0; y < height; ++y) {
-                for (int sy = 0; sy < scale; ++sy) {
-                    uint16_t* dstRow = dst + (y * scale + sy) * dstStride;
-                    const uint16_t* srcRow = src + y * width;
-                    for (int x = 0; x < width; ++x) {
-                        uint16_t pixel = srcRow[x];
-                        for (int sx = 0; sx < scale; ++sx) {
-                            *dstRow++ = pixel;
-                        }
-                    }
-                }
+                memcpy(dst + (y * dstStride), src + (y * width), width * sizeof(uint16_t));
             }
             
             ANativeWindow_unlockAndPost(window);
