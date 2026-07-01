@@ -56,8 +56,8 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   void _onFrameGenerated() {
     if (_isCasting) {
       final now = DateTime.now();
-      if (_lastFrameTime != null && now.difference(_lastFrameTime!).inMilliseconds < 33) {
-        return; // Throttle TV broadcast to 30 FPS to prevent GC stutter
+      if (_lastFrameTime != null && now.difference(_lastFrameTime!).inMilliseconds < 50) {
+        return; // Throttle TV broadcast to 20 FPS to prevent Miracast stutter
       }
       _lastFrameTime = now;
       
@@ -402,6 +402,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
                   ),
                 ],
               ),
+              _buildTelemetryBar(telemetry),
               Expanded(
                 child: _buildGamepadControls(),
               ),
@@ -870,10 +871,10 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
             ),
           ),
           
-          // Bottom 80px: Telemetry HUD Bar
-          Container(
-            height: 80,
-            decoration: const BoxDecoration(
+  Widget _buildTelemetryBar(CombinedTelemetry telemetry) {
+    return Container(
+      height: 60,
+      decoration: const BoxDecoration(
               color: Color(0xFF0B0B1D),
               border: Border(
                 top: BorderSide(color: Colors.white12, width: 1.5),
@@ -941,6 +942,40 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
                   color: const Color(0xFF00E5FF),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTVViewport(CombinedTelemetry telemetry) {
+    if (widget.engine == null) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Text(
+            'NO ENGINE ASSIGNED',
+            style: TextStyle(color: Colors.white30, fontSize: 12),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF030308),
+      child: Column(
+        children: [
+          // Upper frame: Emulator Output
+          Expanded(
+            child: ValueListenableBuilder<ui.Image?>(
+              valueListenable: widget.engine!.currentFrameNotifier,
+              builder: (context, frame, child) {
+                return CustomPaint(
+                  painter: EmulationCanvasPainter(frame),
+                  child: Container(),
+                );
+              },
             ),
           ),
         ],

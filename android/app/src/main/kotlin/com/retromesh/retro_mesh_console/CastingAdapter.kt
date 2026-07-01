@@ -108,12 +108,44 @@ class CastingAdapter(
                         override fun onCreate(savedInstanceState: Bundle?) {
                             super.onCreate(savedInstanceState)
                             
-                            val imageView = ImageView(context).apply {
-                                scaleType = ImageView.ScaleType.FIT_CENTER
+                            val container = android.widget.FrameLayout(context).apply {
                                 setBackgroundColor(android.graphics.Color.BLACK)
                             }
+                            
+                            val imageView = ImageView(context).apply {
+                                scaleType = ImageView.ScaleType.FIT_XY // We manually control aspect ratio
+                            }
+                            
+                            container.addView(imageView, android.widget.FrameLayout.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            ).apply {
+                                gravity = android.view.Gravity.CENTER
+                            })
+                            
+                            // Force 4:3 Aspect Ratio (e.g. 256x224 scaled to 4:3 CRT look)
+                            container.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+                                val w = right - left
+                                val h = bottom - top
+                                val targetW: Int
+                                val targetH: Int
+                                if (w * 3 > h * 4) { // TV is wider than 4:3 (e.g. 16:9)
+                                    targetH = h
+                                    targetW = h * 4 / 3
+                                } else {
+                                    targetW = w
+                                    targetH = w * 3 / 4
+                                }
+                                val params = imageView.layoutParams
+                                if (params.width != targetW || params.height != targetH) {
+                                    params.width = targetW
+                                    params.height = targetH
+                                    imageView.layoutParams = params
+                                }
+                            }
+                            
                             presentationImageView = imageView
-                            setContentView(imageView)
+                            setContentView(container)
                         }
                     }
                     presentationDialog?.show()
@@ -161,9 +193,11 @@ class CastingAdapter(
             frameBitmap?.let { bitmap ->
                 bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(bytes))
                 handler.post {
-                    val drawable = android.graphics.drawable.BitmapDrawable(activity.resources, bitmap)
-                    drawable.isFilterBitmap = true // Bilinear filtering for smooth upscaling
-                    presentationImageView?.setImageDrawable(drawable)
+                    if (presentationImageView?.drawable == null) {
+                        val drawable = android.graphics.drawable.BitmapDrawable(activity.resources, bitmap)
+                        drawable.isFilterBitmap = false // Nearest-neighbor for crisp retro pixels
+                        presentationImageView?.setImageDrawable(drawable)
+                    }
                     presentationImageView?.invalidate()
                 }
             }

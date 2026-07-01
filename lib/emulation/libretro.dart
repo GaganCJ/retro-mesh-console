@@ -20,6 +20,10 @@ const int RETRO_DEVICE_ID_JOYPAD_LEFT = 6;
 const int RETRO_DEVICE_ID_JOYPAD_RIGHT = 7;
 const int RETRO_DEVICE_ID_JOYPAD_A = 8;
 const int RETRO_DEVICE_ID_JOYPAD_X = 9;
+const int RETRO_DEVICE_ID_JOYPAD_L = 10;
+const int RETRO_DEVICE_ID_JOYPAD_R = 11;
+const int RETRO_DEVICE_ID_JOYPAD_L2 = 12;
+const int RETRO_DEVICE_ID_JOYPAD_R2 = 13;
 
 // --- Libretro C Structs mapped to FFI ---
 
@@ -125,7 +129,6 @@ class LibretroEngine {
   int _mockDY = 2;
   static const int _mockWidth = 256;
   static const int _mockHeight = 224;
-  bool isPaused = false;
 
   LibretroEngine() {
     activeInstance = this;
@@ -521,8 +524,6 @@ class LibretroEngine {
       }
     }
 
-    rawFrameNotifier.value = rgbaData;
-    
     if (isPaused) {
       // Draw PAUSED in red blocks in the center
       _drawMockSquare(rgbaData, 120, 110, 255, 0, 0);
@@ -532,6 +533,9 @@ class LibretroEngine {
          _drawMockSquare(rgbaData, 100 + i, 100, 255, 255, 255);
       }
     }
+
+    rawFrameNotifier.value = rgbaData;
+
     ui.decodeImageFromPixels(
       rgbaData,
       _mockWidth,
