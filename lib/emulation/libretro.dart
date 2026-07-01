@@ -5,7 +5,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' hide Size;
 import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
 // --- Libretro Constants ---
@@ -266,9 +266,9 @@ class LibretroEngine {
     _retroUnloadGame = dylib.lookupFunction<Void Function(), void Function()>('retro_unload_game');
     _retroReset = dylib.lookupFunction<Void Function(), void Function()>('retro_reset');
 
-    _retroSerializeSize = dylib.lookupFunction<Size Function(), int Function()>('retro_serialize_size');
-    _retroSerialize = dylib.lookupFunction<Bool Function(Pointer<Void>, Size), bool Function(Pointer<Void>, int)>('retro_serialize');
-    _retroUnserialize = dylib.lookupFunction<Bool Function(Pointer<Void>, Size), bool Function(Pointer<Void>, int)>('retro_unserialize');
+    _retroSerializeSize = dylib.lookupFunction<IntPtr Function(), int Function()>('retro_serialize_size');
+    _retroSerialize = dylib.lookupFunction<Bool Function(Pointer<Void>, IntPtr), bool Function(Pointer<Void>, int)>('retro_serialize');
+    _retroUnserialize = dylib.lookupFunction<Bool Function(Pointer<Void>, IntPtr), bool Function(Pointer<Void>, int)>('retro_unserialize');
   }
 
   void _setupCallbacks() {
