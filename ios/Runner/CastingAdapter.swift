@@ -9,6 +9,7 @@ class CastingAdapter: NSObject, FlutterPlugin, FlutterStreamHandler {
     
     private var externalWindow: UIWindow?
     private var currentTarget: [String: Any]?
+    private var imageView: UIImageView?
     
     static func register(with registrar: FlutterPluginRegistrar) {
         let instance = CastingAdapter()
@@ -51,9 +52,15 @@ class CastingAdapter: NSObject, FlutterPlugin, FlutterStreamHandler {
         case "projectGameplayCanvas":
             projectGameplay()
             result(nil)
+        case "sendFrame":
+            if let args = call.arguments as? FlutterStandardTypedData {
+                renderFrame(data: args.data)
+            }
+            result(nil)
         case "disconnect":
             externalWindow = nil
             currentTarget = nil
+            imageView = nil
             result(nil)
         default:
             result(FlutterMethodNotImplemented)
@@ -113,19 +120,44 @@ class CastingAdapter: NSObject, FlutterPlugin, FlutterStreamHandler {
             let externalViewController = UIViewController()
             externalViewController.view.backgroundColor = .black
             
-            let label = UILabel()
-            label.text = "Retro Mesh Console: Projection Active\nWebGL TV Viewport Projected via AirPlay Bridge"
-            label.numberOfLines = 0
-            label.textColor = .white
-            label.textAlignment = .center
-            label.font = UIFont.systemFont(ofSize: 24, weight: .bold)
-            label.frame = externalViewController.view.bounds
-            label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            let iv = UIImageView(frame: externalViewController.view.bounds)
+            iv.contentMode = .scaleAspectFit
+            iv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            iv.layer.magnificationFilter = .linear // Bilinear filtering for smooth scaling
+            iv.backgroundColor = .black
             
-            externalViewController.view.addSubview(label)
+            externalViewController.view.addSubview(iv)
+            self.imageView = iv
+            
             extWindow.rootViewController = externalViewController
             extWindow.isHidden = false
             self.externalWindow = extWindow
+        }
+    }
+    
+    private func renderFrame(data: Data) {
+        let width = 256
+        let height = 224
+        
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+        
+        guard let provider = CGDataProvider(data: data as CFData) else { return }
+        guard let cgImage = CGImage(width: width,
+                                    height: height,
+                                    bitsPerComponent: 8,
+                                    bitsPerPixel: 32,
+                                    bytesPerRow: width * 4,
+                                    space: colorSpace,
+                                    bitmapInfo: bitmapInfo,
+                                    provider: provider,
+                                    decode: nil,
+                                    shouldInterpolate: false,
+                                    intent: .defaultIntent) else { return }
+        
+        let uiImage = UIImage(cgImage: cgImage)
+        DispatchQueue.main.async { [weak self] in
+            self?.imageView?.image = uiImage
         }
     }
 }
