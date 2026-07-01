@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Display
-import android.widget.ImageView
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -19,42 +18,31 @@ import java.nio.ByteBuffer
 class CastingAdapter(
     private val activity: Activity,
     messenger: BinaryMessenger
-) : MethodChannel.MethodCallHandler {
+) {
 
-    private val methodChannel = MethodChannel(messenger, "com.retromesh.console/projection")
     private val handler = Handler(Looper.getMainLooper())
     private val displayManager = activity.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
     
     private var presentationDialog: Presentation? = null
-    private var presentationImageView: ImageView? = null
-    private var frameBitmap: Bitmap? = null
 
     init {
-        methodChannel.setMethodCallHandler(this)
-    }
-
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "openSystemCastMenu" -> {
-                openSystemCastMenu()
-                result.success(null)
-            }
-            "startTVProjection" -> {
-                val success = startTVProjection()
-                result.success(success)
-            }
-            "stopTVProjection" -> {
-                stopTVProjection()
-                result.success(null)
-            }
-            "sendFrame" -> {
-                val bytes = call.arguments as? ByteArray
-                if (bytes != null) {
-                    renderFrame(bytes)
+        val channel = MethodChannel(messenger, "com.retromesh.console/projection")
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "openSystemCastMenu" -> {
+                    openSystemCastMenu()
+                    result.success(null)
                 }
-                result.success(null)
+                "startTVProjection" -> {
+                    val success = startTVProjection()
+                    result.success(success)
+                }
+                "stopTVProjection" -> {
+                    stopTVProjection()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
-            else -> result.notImplemented()
         }
     }
 
@@ -111,19 +99,25 @@ class CastingAdapter(
                             val container = android.widget.FrameLayout(context).apply {
                                 setBackgroundColor(android.graphics.Color.BLACK)
                             }
+                            val surfaceView = android.view.SurfaceView(context)
+                            surfaceView.holder.addCallback(object : android.view.SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: android.view.SurfaceHolder) {
+                                    NativeRender.setTvSurface(holder.surface)
+                                }
+                                override fun surfaceChanged(holder: android.view.SurfaceHolder, format: Int, width: Int, height: Int) {}
+                                override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
+                                    NativeRender.setTvSurface(null)
+                                }
+                            })
                             
-                            val imageView = ImageView(context).apply {
-                                scaleType = ImageView.ScaleType.FIT_XY // We manually control aspect ratio
-                            }
-                            
-                            container.addView(imageView, android.widget.FrameLayout.LayoutParams(
+                            container.addView(surfaceView, android.widget.FrameLayout.LayoutParams(
                                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
                             ).apply {
                                 gravity = android.view.Gravity.CENTER
                             })
                             
-                            // Force 4:3 Aspect Ratio (e.g. 256x224 scaled to 4:3 CRT look)
+                            // Force 4:3 Aspect Ratio
                             container.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
                                 val w = right - left
                                 val h = bottom - top
@@ -136,15 +130,14 @@ class CastingAdapter(
                                     targetW = w
                                     targetH = w * 3 / 4
                                 }
-                                val params = imageView.layoutParams
+                                val params = surfaceView.layoutParams
                                 if (params.width != targetW || params.height != targetH) {
                                     params.width = targetW
                                     params.height = targetH
-                                    imageView.layoutParams = params
+                                    surfaceView.layoutParams = params
                                 }
                             }
                             
-                            presentationImageView = imageView
                             setContentView(container)
                         }
                     }
@@ -180,29 +173,4 @@ class CastingAdapter(
         }
     }
 
-    private fun renderFrame(bytes: ByteArray) {
-        if (presentationDialog == null || presentationImageView == null) return
-        
-        try {
-            // Re-use bitmap to avoid GC churn at 60fps
-            if (frameBitmap == null) {
-                // Mock width and height from libretro.dart
-                frameBitmap = Bitmap.createBitmap(256, 224, Bitmap.Config.ARGB_8888)
-            }
-            
-            frameBitmap?.let { bitmap ->
-                bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(bytes))
-                handler.post {
-                    if (presentationImageView?.drawable == null) {
-                        val drawable = android.graphics.drawable.BitmapDrawable(activity.resources, bitmap)
-                        drawable.isFilterBitmap = false // Nearest-neighbor for crisp retro pixels
-                        presentationImageView?.setImageDrawable(drawable)
-                    }
-                    presentationImageView?.invalidate()
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore frame drop errors silently
-        }
-    }
 }

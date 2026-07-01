@@ -933,13 +933,13 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
         children: [
           // Upper frame: Emulator Output
           Expanded(
-            child: ValueListenableBuilder<ui.Image?>(
-              valueListenable: widget.engine!.currentFrameNotifier,
-              builder: (context, frame, child) {
-                return CustomPaint(
-                  painter: EmulationCanvasPainter(frame),
-                  child: Container(),
-                );
+            child: ValueListenableBuilder<int?>(
+              valueListenable: widget.engine!.textureIdNotifier,
+              builder: (context, textureId, child) {
+                if (textureId == null) {
+                  return const Center(child: Text('WAITING FOR GPU TEXTURE...', style: TextStyle(color: Colors.white24)));
+                }
+                return Texture(textureId: textureId);
               },
             ),
           ),

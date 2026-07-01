@@ -54,6 +54,9 @@ typedef retro_audio_sample_batch_t = IntPtr Function(Pointer<Int16> data, IntPtr
 typedef retro_input_poll_t = Void Function();
 typedef retro_input_state_t = Int16 Function(Uint32 port, Uint32 device, Uint32 index, Uint32 id);
 
+typedef render_to_window_c = Void Function(Pointer<Uint8> pixels, Int32 width, Int32 height);
+typedef render_to_window_dart = void Function(Pointer<Uint8> pixels, int width, int height);
+
 // --- Top-Level Callback Functions for FFI registration ---
 
 bool _environmentCallback(int cmd, Pointer<Void> data) {
@@ -90,6 +93,7 @@ class LibretroEngine {
   // Emulation State Notifiers
   // For local UI rendering
   final ValueNotifier<ui.Image?> currentFrameNotifier = ValueNotifier<ui.Image?>(null);
+  final ValueNotifier<int?> textureIdNotifier = ValueNotifier<int?>(null);
   // For native dual-screen projection
   final ValueNotifier<Uint8List?> rawFrameNotifier = ValueNotifier<Uint8List?>(null);
   final ValueNotifier<String> logNotifier = ValueNotifier<String>('Engine Initialized');
@@ -124,6 +128,8 @@ class LibretroEngine {
   late void Function(Pointer<retro_system_info>) _retroGetSystemInfo;
   late void Function() _retroReset;
 
+  late render_to_window_dart _renderToWindow;
+
   String coreName = 'Unknown Core';
 
   // Mock Engine Rendering Variables
@@ -136,6 +142,18 @@ class LibretroEngine {
 
   LibretroEngine() {
     activeInstance = this;
+    _initTexture();
+  }
+
+  Future<void> _initTexture() async {
+    if (Platform.isAndroid) {
+      try {
+        final id = await const MethodChannel('com.retromesh.console/texture').invokeMethod<int>('getTextureId');
+        textureIdNotifier.value = id;
+      } catch (e) {
+        _log('Failed to fetch GPU texture ID: $e');
+      }
+    }
   }
 
   /// Extracts emulation core binary from Flutter assets to persistent documents folder
@@ -167,6 +185,8 @@ class LibretroEngine {
 
       if (Platform.isAndroid) {
         _lib = DynamicLibrary.open(corePath);
+        final nativeRenderLib = DynamicLibrary.open('libnative_render.so');
+        _renderToWindow = nativeRenderLib.lookupFunction<render_to_window_c, render_to_window_dart>('render_to_window');
       } else if (Platform.isIOS) {
         // Statically linked or loaded via Framework bundle on iOS
         _lib = DynamicLibrary.process();
@@ -411,15 +431,19 @@ class LibretroEngine {
 
     rawFrameNotifier.value = rgbaData;
 
-    ui.decodeImageFromPixels(
-      rgbaData,
-      width,
-      height,
-      ui.PixelFormat.rgba8888,
-      (ui.Image img) {
-        currentFrameNotifier.value = img;
-      },
-    );
+    // Send the frame buffer directly to the GPU via JNI!
+    // Allocate native memory for the frame, copy it, and send the pointer
+    final nativePixels = calloc<Uint8>(rgbaData.length);
+    final nativeList = nativePixels.asTypedList(rgbaData.length);
+    nativeList.setAll(0, rgbaData);
+    
+    try {
+      _renderToWindow(nativePixels, width, height);
+    } catch (e) {
+      _log('Failed to render to native window: $e');
+    }
+    
+    calloc.free(nativePixels);
   }
 
   void _handleAudioSample(int left, int right) {

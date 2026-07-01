@@ -34,5 +34,25 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+        val textureRegistry = flutterEngine.renderer
+        val textureEntry = textureRegistry.createSurfaceTexture()
+        val surface = android.view.Surface(textureEntry.surfaceTexture())
+        NativeRender.setFlutterSurface(surface)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.retromesh.console/texture").setMethodCallHandler { call, result ->
+            if (call.method == "getTextureId") {
+                result.success(textureEntry.id())
+            } else {
+                result.notImplemented()
+            }
+        }
     }
+}
+
+object NativeRender {
+    init {
+        System.loadLibrary("native_render")
+    }
+    external fun setFlutterSurface(surface: android.view.Surface?)
+    external fun setTvSurface(surface: android.view.Surface?)
 }
