@@ -73,7 +73,7 @@ void render_to_window_ios(const uint16_t* pixels, int width, int height) {
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
             global_tv_layer.contents = (__bridge id)cgImage;
-            global_tv_layer.magnificationFilter = kCAFilterNearest; // Crisp retro pixels
+            global_tv_layer.magnificationFilter = kCAFilterLinear; // Use linear scaling to gracefully handle non-integer dynamic resolutions
             [CATransaction commit];
             CGImageRelease(cgImage);
         });

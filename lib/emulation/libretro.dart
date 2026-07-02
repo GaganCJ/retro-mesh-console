@@ -108,6 +108,8 @@ class LibretroEngine {
   bool isMockMode = false;
   bool _isCoreInitialized = false;
   bool _isGameLoaded = false;
+  String _coreName = 'Unknown Core';
+  String get coreName => _coreName;
   Timer? _gameLoopTimer;
   bool isPaused = false;
 
@@ -132,8 +134,6 @@ class LibretroEngine {
   late bool Function(Pointer<Void>, int) _retroUnserialize;
 
   late render_to_window_dart _renderToWindow;
-
-  String coreName = 'Unknown Core';
 
   // Mock Engine Rendering Variables
   int _mockX = 120;
@@ -205,7 +205,7 @@ class LibretroEngine {
       final info = calloc<retro_system_info>();
       _retroGetSystemInfo(info);
       if (info.ref.library_name != nullptr) {
-        coreName = info.ref.library_name.toDartString();
+        _coreName = info.ref.library_name.toDartString();
       }
       calloc.free(info);
 

@@ -59,11 +59,8 @@ void TvRenderWorker() {
         if (!tvThreadRunning) break;
         
         if (tvWindow) {
-            const int scale = 4;
-            int scaledWidth = tvWidth * scale;
-            int scaledHeight = tvHeight * scale;
-            
-            ANativeWindow_setBuffersGeometry(tvWindow, scaledWidth, scaledHeight, WINDOW_FORMAT_RGB_565);
+            // No crisp scaling loop. Use exact 1:1 dimensions and let SurfaceFlinger stretch it seamlessly.
+            ANativeWindow_setBuffersGeometry(tvWindow, tvWidth, tvHeight, WINDOW_FORMAT_RGB_565);
             
             ANativeWindow_Buffer buffer;
             if (ANativeWindow_lock(tvWindow, &buffer, nullptr) == 0) {
@@ -73,16 +70,7 @@ void TvRenderWorker() {
                 int dstStride = buffer.stride;
                 
                 for (int y = 0; y < tvHeight; ++y) {
-                    for (int sy = 0; sy < scale; ++sy) {
-                        uint16_t* dstRow = dst + (y * scale + sy) * dstStride;
-                        const uint16_t* srcRow = src + y * tvWidth;
-                        for (int x = 0; x < tvWidth; ++x) {
-                            uint16_t pixel = srcRow[x];
-                            for (int sx = 0; sx < scale; ++sx) {
-                                *dstRow++ = pixel;
-                            }
-                        }
-                    }
+                    memcpy(dst + (y * dstStride), src + (y * tvWidth), tvWidth * sizeof(uint16_t));
                 }
                 
                 ANativeWindow_unlockAndPost(tvWindow);

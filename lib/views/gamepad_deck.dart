@@ -625,8 +625,14 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
     );
   }
 
-  /// Core gamepad layout split into D-pad, System Panel, and ABXY cluster
+  /// Core gamepad layout split into D-pad, System Panel, and Action cluster
   Widget _buildGamepadControls() {
+    String coreName = widget.engine?.coreName.toLowerCase() ?? '';
+    bool isGenesis = coreName.contains('genesis') || coreName.contains('picodrive') || coreName.contains('megadrive');
+    bool isSnes = coreName.contains('snes') || coreName.contains('gba') || coreName.contains('game boy advance') || coreName.contains('vba') || coreName.contains('mgba');
+    bool isPs1 = coreName.contains('playstation') || coreName.contains('pcsx') || coreName.contains('ps1');
+    bool isNes = !isGenesis && !isSnes && !isPs1;
+
     return Stack(
       children: [
         // Solid black background for pure controller experience
@@ -634,25 +640,55 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
           child: Container(color: Colors.black),
         ),
 
+        // Shoulder buttons for SNES, GBA, PS1
+        if (isSnes || isPs1) ...[
+          Positioned(
+            left: 36,
+            top: 24,
+            child: _buildShoulderButton(label: isPs1 ? 'L1' : 'L', buttonId: 12),
+          ),
+          Positioned(
+            right: 36,
+            top: 24,
+            child: _buildShoulderButton(label: isPs1 ? 'R1' : 'R', buttonId: 13),
+          ),
+        ],
+        // Extra triggers for PS1
+        if (isPs1) ...[
+          Positioned(
+            left: 36,
+            top: 96,
+            child: _buildShoulderButton(label: 'L2', buttonId: 14),
+          ),
+          Positioned(
+            right: 36,
+            top: 96,
+            child: _buildShoulderButton(label: 'R2', buttonId: 15),
+          ),
+        ],
+
         // Left Side: D-pad
         Align(
           alignment: Alignment.centerLeft,
           child: Padding(
-            padding: const EdgeInsets.only(left: 36),
+            padding: EdgeInsets.only(left: 36, top: (isSnes || isPs1) ? 48 : 0),
             child: _buildDPad(),
           ),
         ),
 
-        // Right Side: ABXY Cluster
+        // Right Side: Dynamic Action Cluster
         Align(
           alignment: Alignment.centerRight,
           child: Padding(
-            padding: const EdgeInsets.only(right: 36),
-            child: _buildABXYCluster(),
+            padding: EdgeInsets.only(right: 36, top: (isSnes || isPs1) ? 48 : 0),
+            child: isGenesis ? _buildGenesisCluster() :
+                   isPs1 ? _buildPs1Cluster() :
+                   isSnes ? _buildSnesCluster() :
+                   _buildNesCluster(),
           ),
         ),
 
-        // Center: System Keys (SELECT / START / MENU / PAUSE)
+        // Center: System Keys (SELECT / START / MENU)
         Align(
           alignment: Alignment.bottomCenter,
           child: Padding(
@@ -661,6 +697,33 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildShoulderButton({required String label, required int buttonId}) {
+    return Listener(
+      onPointerDown: (_) {
+        HapticFeedback.lightImpact();
+        _handleButtonEvent(buttonId, true);
+      },
+      onPointerUp: (_) {
+        _handleButtonEvent(buttonId, false);
+      },
+      child: Container(
+        width: 120,
+        height: 48,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E38),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white24, width: 2),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
     );
   }
 
@@ -851,7 +914,21 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildABXYCluster() {
+  Widget _buildNesCluster() {
+    const double size = 64;
+    return SizedBox(
+      width: size * 2.5,
+      height: size * 1.5,
+      child: Stack(
+        children: [
+          Positioned(left: 0, top: size * 0.5, child: _buildGamepadButton(label: 'B', buttonId: 6, color: const Color(0xFFE57373), size: size)),
+          Positioned(left: size * 1.2, top: 0, child: _buildGamepadButton(label: 'A', buttonId: 5, color: const Color(0xFF81C784), size: size)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSnesCluster() {
     const double size = 64;
     const double spacing = 128;
     return SizedBox(
@@ -859,30 +936,49 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
       height: size + spacing,
       child: Stack(
         children: [
-          // Y
-          Positioned(
-            left: 0,
-            top: spacing / 2,
-            child: _buildGamepadButton(label: 'Y', buttonId: 8, color: const Color(0xFFFFD54F), size: size),
-          ),
-          // X
-          Positioned(
-            left: spacing / 2,
-            top: 0,
-            child: _buildGamepadButton(label: 'X', buttonId: 7, color: const Color(0xFF4FC3F7), size: size),
-          ),
-          // A
-          Positioned(
-            left: spacing,
-            top: spacing / 2,
-            child: _buildGamepadButton(label: 'A', buttonId: 5, color: const Color(0xFF81C784), size: size),
-          ),
-          // B
-          Positioned(
-            left: spacing / 2,
-            top: spacing,
-            child: _buildGamepadButton(label: 'B', buttonId: 6, color: const Color(0xFFE57373), size: size),
-          ),
+          Positioned(left: 0, top: spacing / 2, child: _buildGamepadButton(label: 'Y', buttonId: 8, color: const Color(0xFF81C784), size: size)), // SNES Y
+          Positioned(left: spacing / 2, top: 0, child: _buildGamepadButton(label: 'X', buttonId: 7, color: const Color(0xFF4FC3F7), size: size)), // SNES X
+          Positioned(left: spacing, top: spacing / 2, child: _buildGamepadButton(label: 'A', buttonId: 5, color: const Color(0xFFE57373), size: size)), // SNES A
+          Positioned(left: spacing / 2, top: spacing, child: _buildGamepadButton(label: 'B', buttonId: 6, color: const Color(0xFFFFD54F), size: size)), // SNES B
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPs1Cluster() {
+    const double size = 64;
+    const double spacing = 128;
+    return SizedBox(
+      width: size + spacing,
+      height: size + spacing,
+      child: Stack(
+        children: [
+          Positioned(left: 0, top: spacing / 2, child: _buildGamepadButton(label: '□', buttonId: 8, color: const Color(0xFFE91E63), size: size)), // Square = Y
+          Positioned(left: spacing / 2, top: 0, child: _buildGamepadButton(label: '△', buttonId: 7, color: const Color(0xFF4CAF50), size: size)), // Triangle = X
+          Positioned(left: spacing, top: spacing / 2, child: _buildGamepadButton(label: '○', buttonId: 5, color: const Color(0xFFF44336), size: size)), // Circle = A
+          Positioned(left: spacing / 2, top: spacing, child: _buildGamepadButton(label: '✕', buttonId: 6, color: const Color(0xFF2196F3), size: size)), // Cross = B
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenesisCluster() {
+    const double size = 56;
+    const double xSpacing = 64;
+    const double ySpacing = 56;
+    return SizedBox(
+      width: size + xSpacing * 2,
+      height: size + ySpacing,
+      child: Stack(
+        children: [
+          // Top Row: X, Y, Z (mapped to SNES L, X, R)
+          Positioned(left: 0, top: 0, child: _buildGamepadButton(label: 'X', buttonId: 12, color: Colors.grey.shade400, size: size)), // L
+          Positioned(left: xSpacing, top: 0, child: _buildGamepadButton(label: 'Y', buttonId: 7, color: Colors.grey.shade400, size: size)), // X
+          Positioned(left: xSpacing * 2, top: 0, child: _buildGamepadButton(label: 'Z', buttonId: 13, color: Colors.grey.shade400, size: size)), // R
+          // Bottom Row: A, B, C (mapped to SNES Y, B, A)
+          Positioned(left: 0, top: ySpacing, child: _buildGamepadButton(label: 'A', buttonId: 8, color: const Color(0xFFE57373), size: size)), // Y
+          Positioned(left: xSpacing, top: ySpacing, child: _buildGamepadButton(label: 'B', buttonId: 6, color: const Color(0xFF81C784), size: size)), // B
+          Positioned(left: xSpacing * 2, top: ySpacing, child: _buildGamepadButton(label: 'C', buttonId: 5, color: const Color(0xFF4FC3F7), size: size)), // A
         ],
       ),
     );
