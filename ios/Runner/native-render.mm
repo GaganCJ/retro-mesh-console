@@ -83,3 +83,4 @@ void render_to_window_ios(const uint16_t* pixels, int width, int height) {
     CGDataProviderRelease(provider);
 }
 
+#include "native-audio.mm"

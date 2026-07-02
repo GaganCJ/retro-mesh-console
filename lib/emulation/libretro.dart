@@ -134,6 +134,11 @@ class LibretroEngine {
   late bool Function(Pointer<Void>, int) _retroUnserialize;
 
   late render_to_window_dart _renderToWindow;
+  
+  // Native Audio Bridge
+  late void Function(double) _nativeAudioInit;
+  late void Function() _nativeAudioDeinit;
+  late Pointer<NativeFunction<retro_audio_sample_batch_t>> _nativeAudioCb;
 
   // Mock Engine Rendering Variables
   int _mockX = 120;
@@ -190,10 +195,16 @@ class LibretroEngine {
         _lib = DynamicLibrary.open(corePath);
         final nativeRenderLib = DynamicLibrary.open('libnative_render.so');
         _renderToWindow = nativeRenderLib.lookupFunction<render_to_window_c, render_to_window_dart>('render_to_window');
+        _nativeAudioInit = nativeRenderLib.lookupFunction<Void Function(Double), void Function(double)>('native_audio_init');
+        _nativeAudioDeinit = nativeRenderLib.lookupFunction<Void Function(), void Function()>('native_audio_deinit');
+        _nativeAudioCb = nativeRenderLib.lookup<NativeFunction<retro_audio_sample_batch_t>>('native_audio_sample_batch_cb');
       } else if (Platform.isIOS) {
         // Statically linked or loaded via Framework bundle on iOS
         _lib = DynamicLibrary.process();
         _renderToWindow = DynamicLibrary.process().lookupFunction<render_to_window_c, render_to_window_dart>('render_to_window_ios');
+        _nativeAudioInit = DynamicLibrary.process().lookupFunction<Void Function(Double), void Function(double)>('native_audio_init');
+        _nativeAudioDeinit = DynamicLibrary.process().lookupFunction<Void Function(), void Function()>('native_audio_deinit');
+        _nativeAudioCb = DynamicLibrary.process().lookup<NativeFunction<retro_audio_sample_batch_t>>('native_audio_sample_batch_cb');
       } else {
         _lib = DynamicLibrary.open(corePath);
       }
@@ -208,6 +219,8 @@ class LibretroEngine {
         _coreName = info.ref.library_name.toDartString();
       }
       calloc.free(info);
+
+      _nativeAudioInit(44100.0); // Most retro cores run at 44.1kHz
 
       _isCoreInitialized = true;
       isMockMode = false;
@@ -275,7 +288,13 @@ class LibretroEngine {
     _retroSetEnvironment(Pointer.fromFunction<retro_environment_t>(_environmentCallback, false));
     _retroSetVideoRefresh(Pointer.fromFunction<retro_video_refresh_t>(_videoRefreshCallback));
     _retroSetAudioSample(Pointer.fromFunction<retro_audio_sample_t>(_audioSampleCallback));
-    _retroSetAudioSampleBatch(Pointer.fromFunction<retro_audio_sample_batch_t>(_audioSampleBatchCallback, 0));
+    
+    if (isMockMode) {
+      _retroSetAudioSampleBatch(Pointer.fromFunction<retro_audio_sample_batch_t>(_audioSampleBatchCallback, 0));
+    } else {
+      _retroSetAudioSampleBatch(_nativeAudioCb);
+    }
+
     _retroSetInputPoll(Pointer.fromFunction<retro_input_poll_t>(_inputPollCallback));
     _retroSetInputState(Pointer.fromFunction<retro_input_state_t>(_inputStateCallback, 0));
   }
@@ -419,6 +438,7 @@ class LibretroEngine {
     stopGameLoop();
     _log('Shutting down engine');
     if (_lib != null && !isMockMode) {
+      _nativeAudioDeinit();
       if (_isGameLoaded) {
         _retroUnloadGame();
         _isGameLoaded = false;
