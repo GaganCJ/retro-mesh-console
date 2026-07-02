@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../utils/logger.dart';
 import 'package:flutter/material.dart';
@@ -88,6 +87,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && widget.isHost && _isConnectingTV) {
       _startNativeTVProjection().then((connected) {
+        if (!mounted) return;
         if (!connected) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -180,8 +180,9 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
       final key = event.logicalKey;
       int? buttonId;
       
-      if (key == LogicalKeyboardKey.arrowUp) buttonId = 1;
-      else if (key == LogicalKeyboardKey.arrowDown) buttonId = 2;
+      if (key == LogicalKeyboardKey.arrowUp) {
+        buttonId = 1;
+      } else if (key == LogicalKeyboardKey.arrowDown) buttonId = 2;
       else if (key == LogicalKeyboardKey.arrowLeft) buttonId = 3;
       else if (key == LogicalKeyboardKey.arrowRight) buttonId = 4;
       else if (key == LogicalKeyboardKey.gameButtonA || key == LogicalKeyboardKey.keyX) buttonId = 5;
@@ -346,8 +347,8 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFFF2E93).withOpacity(0.08),
-                  border: Border.all(color: const Color(0xFFFF2E93).withOpacity(0.3), width: 1.5),
+                  color: const Color(0xFFFF2E93).withValues(alpha: 0.08),
+                  border: Border.all(color: const Color(0xFFFF2E93).withValues(alpha: 0.3), width: 1.5),
                 ),
                 child: const SizedBox(
                   width: 56,
@@ -373,7 +374,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
               Text(
                 'Please select your wireless display or Smart TV in the system cast overlay.',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 13,
                   fontFamily: 'Outfit',
                 ),
@@ -505,8 +506,8 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF00E5FF).withOpacity(0.08),
-                border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3), width: 1.5),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.08),
+                border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3), width: 1.5),
               ),
               child: const SizedBox(
                 width: 48,
@@ -531,7 +532,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
             Text(
               'Make sure both devices are connected to the same Wi-Fi network. Auto-discovery will connect you automatically.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -609,7 +610,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
                     ),
@@ -631,7 +632,6 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
     bool isGenesis = coreName.contains('genesis') || coreName.contains('picodrive') || coreName.contains('megadrive');
     bool isSnes = coreName.contains('snes') || coreName.contains('gba') || coreName.contains('game boy advance') || coreName.contains('vba') || coreName.contains('mgba');
     bool isPs1 = coreName.contains('playstation') || coreName.contains('pcsx') || coreName.contains('ps1');
-    bool isNes = !isGenesis && !isSnes && !isPs1;
 
     return Stack(
       children: [
@@ -894,10 +894,10 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: isHotKey ? const Color(0xFFFF2E93).withOpacity(0.1) : const Color(0xFF1E1E38),
+          color: isHotKey ? const Color(0xFFFF2E93).withValues(alpha: 0.1) : const Color(0xFF1E1E38),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isHotKey ? const Color(0xFFFF2E93).withOpacity(0.5) : Colors.white24,
+            color: isHotKey ? const Color(0xFFFF2E93).withValues(alpha: 0.5) : Colors.white24,
             width: 1.5,
           ),
         ),
@@ -1002,7 +1002,7 @@ class _GamepadDeckState extends State<GamepadDeck> with WidgetsBindingObserver {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(color: color, width: 2.5),
         ),

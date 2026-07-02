@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:retro_mesh_console/emulation/libretro.dart';
-import 'package:retro_mesh_console/network/host_server.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

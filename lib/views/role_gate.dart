@@ -138,9 +138,9 @@ class RoleGate extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E38).withOpacity(0.9),
+            color: const Color(0xFF1E1E38).withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFF2E93).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFFFF2E93).withValues(alpha: 0.3)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -223,7 +223,7 @@ class RoleGate extends StatelessWidget {
                   Text(
                     'RETRO MESH CONSOLE v1.0.0',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       fontSize: 11,
                       letterSpacing: 2.0,
                       fontFamily: 'Outfit',
@@ -250,12 +250,12 @@ class RoleGate extends StatelessWidget {
             color: const Color(0xFF1E1E3F),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF2E93).withOpacity(0.2),
+                color: const Color(0xFFFF2E93).withValues(alpha: 0.2),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
               BoxShadow(
-                color: const Color(0xFF00E5FF).withOpacity(0.1),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.1),
                 blurRadius: 30,
                 spreadRadius: 4,
               ),
@@ -309,26 +309,26 @@ class RoleGate extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: glowColor.withOpacity(0.1),
+            color: glowColor.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
-        color: const Color(0xFF16162D).withOpacity(0.85),
+        color: const Color(0xFF16162D).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(20),
-          highlightColor: glowColor.withOpacity(0.05),
-          splashColor: glowColor.withOpacity(0.15),
+          highlightColor: glowColor.withValues(alpha: 0.05),
+          splashColor: glowColor.withValues(alpha: 0.15),
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: glowColor.withOpacity(0.25),
+                color: glowColor.withValues(alpha: 0.25),
                 width: 1.5,
               ),
             ),
@@ -338,7 +338,7 @@ class RoleGate extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: glowColor.withOpacity(0.1),
+                    color: glowColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
@@ -375,7 +375,7 @@ class RoleGate extends StatelessWidget {
                       Text(
                         description,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.65),
+                          color: Colors.white.withValues(alpha: 0.65),
                           fontSize: 13,
                           height: 1.4,
                         ),
